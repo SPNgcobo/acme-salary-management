@@ -1,0 +1,28 @@
+# --- Java / Maven ---
+backend/target/
+backend/.mvn/wrapper/maven-wrapper.jar
+*.class
+*.log
+hs_err_pid*
+
+# --- Node / Angular ---
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+npm-debug.log*
+yarn-error.log*
+
+# --- IDE ---
+.idea/
+.vscode/
+*.iml
+
+# --- Env / secrets ---
+.env
+.env.local
+*.local.properties
+application-local.properties
+
+# --- OS ---
+.DS_Store
+Thumbs.db
