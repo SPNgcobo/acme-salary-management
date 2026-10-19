@@ -1,8 +1,10 @@
 # Project Structure
 
-> **Status:** Living document. Update whenever files are added, renamed, or removed. Any file marked `(planned)` does not yet exist in the repository.
+> **Status:** Living document. Update this file whenever files are added, renamed, or removed. Any file marked `(planned)` does not yet exist in the repository.
 
 ## Implemented
+
+The following structure represents the implemented repository layout. Confirm that each listed file exists before treating it as implemented.
 
 ```text
 acme-salary-management/
@@ -14,7 +16,9 @@ acme-salary-management/
 │   ├── architecture.md
 │   ├── design-decisions.md
 │   ├── project-structure.md
-│   └── ai-worklog.md
+│   ├── ai-worklog.md
+│   └── postman/
+│       └── acme-salary-management.postman_collection.json
 ├── backend/
 │   ├── .mvn/
 │   ├── mvnw
@@ -24,10 +28,21 @@ acme-salary-management/
 │       ├── main/
 │       │   ├── java/za/co/acme/salarymanagement/
 │       │   │   ├── SalaryManagementApplication.java
+│       │   │   ├── common/
+│       │   │   │   ├── ApiErrorResponse.java
+│       │   │   │   ├── DevSecurityConfig.java
+│       │   │   │   ├── EmployeeNotFoundException.java
+│       │   │   │   ├── GlobalExceptionHandler.java
+│       │   │   │   └── WebConfig.java
 │       │   │   └── employee/
 │       │   │       ├── Employee.java
+│       │   │       ├── EmployeeController.java
 │       │   │       ├── EmployeeRepository.java
-│       │   │       └── EmploymentStatus.java
+│       │   │       ├── EmployeeService.java
+│       │   │       ├── EmploymentStatus.java
+│       │   │       └── dto/
+│       │   │           ├── EmployeeRequest.java
+│       │   │           └── EmployeeResponse.java
 │       │   └── resources/
 │       │       ├── application.properties
 │       │       └── db/migration/
@@ -36,53 +51,62 @@ acme-salary-management/
 │           ├── java/za/co/acme/salarymanagement/
 │           │   ├── SalaryManagementApplicationTests.java
 │           │   └── employee/
-│           │       └── EmployeeRepositoryTest.java
+│           │       ├── EmployeeControllerTest.java
+│           │       ├── EmployeeRepositoryTest.java
+│           │       └── EmployeeServiceTest.java
 │           └── resources/
 │               └── application-test.properties
-├── frontend/                 # Empty; created but no application yet
+├── frontend/                 # Empty; Angular application not created yet
 └── scripts/                  # Empty
 ```
 
 ## Planned (Not Yet Created)
 
-The following files, packages, and configuration files are planned but do not yet exist in the repository.
+The following files, packages, and configuration files are planned for future implementation. They must not be treated as existing or completed functionality.
 
 ```text
 backend/src/main/java/za/co/acme/salarymanagement/
-├── common/
-│   ├── ApiErrorResponse.java                 (planned)
-│   └── GlobalExceptionHandler.java           (planned)
 ├── employee/
-│   ├── EmployeeService.java                  (planned)
-│   ├── EmployeeController.java               (planned)
-│   ├── EmployeeSpecifications.java            (planned)
-│   └── dto/
-│       ├── EmployeeRequest.java               (planned)
-│       └── EmployeeResponse.java              (planned)
-├── salary/                                   (planned)
-├── report/                                   (planned)
-└── security/                                 (planned)
+│   ├── EmployeeSpecifications.java             (planned)
+│   └── Additional query and filtering code     (planned)
+├── salary/                                     (planned)
+├── report/                                     (planned)
+└── security/                                   (planned)
 
 backend/src/main/resources/db/migration/
-└── V2__create_salary_records.sql              (planned)
+└── V2__create_salary_records.sql                (planned)
 
-backend/Dockerfile                             (planned)
-frontend/Dockerfile                            (planned)
-docker-compose.yml                             (planned)
-scripts/seed.*                                 (planned)
+backend/Dockerfile                               (planned)
+frontend/Dockerfile                              (planned)
+docker-compose.yml                               (planned)
+scripts/seed.*                                   (planned)
 ```
 
 ## Backend Responsibilities
 
-- **Employee module:** Employee profiles, creation and retrieval, directory listing, search, filtering, pagination, and sorting.
-- **Salary module:** Salary amounts, currencies, effective dates, and append-only salary history. Updates must not overwrite previous salary records.
-- **Reporting module:** Dashboard statistics and currency-aware salary reports grouped by country and department.
-- **Security module:** Authentication and authorisation for sensitive operations.
-- **Common module:** Shared API error responses and exception handling.
+### Employee Module
+
+Manages employee profiles, employee creation and retrieval, directory listing, search, filtering, pagination, and sorting.
+
+### Salary Module (Planned)
+
+Manages salary amounts, currencies, effective dates, and append-only salary history. Salary updates must preserve previous records rather than overwrite historical salary data.
+
+### Reporting Module (Planned)
+
+Provides dashboard statistics and currency-aware salary reports grouped by country and department.
+
+### Security Module
+
+Handles authentication and authorisation for sensitive operations. Security configuration must be appropriate for the intended deployment environment.
+
+### Common Module
+
+Provides shared API error responses, exception handling, and web configuration.
 
 ## Frontend Responsibilities (Planned)
 
-The Angular application is planned to contain the following areas:
+The Angular application is planned to include the following areas.
 
 - **Authentication:** Sign-in and authentication screens.
 - **Dashboard:** Employee counts, country coverage, and salary statistics.
@@ -92,10 +116,19 @@ The Angular application is planned to contain the following areas:
 - **Core:** Application-wide services, route guards, and HTTP interceptors.
 - **Shared:** Reusable components and common models.
 
-The frontend structure will be confirmed when the Angular application is generated.
+The final frontend directory structure will be documented when the Angular application is created.
+
+## API Testing
+
+The Postman collection is stored at:
+
+`docs/postman/acme-salary-management.postman_collection.json`
+
+The collection should be maintained as API endpoints and request or response contracts evolve. Requests should be verified against the running application, and any required environment variables or authentication steps should be documented without including real credentials or secrets.
 
 ## Implementation Rule
 
-A planned file or feature is not considered implemented until it exists in the repository and its functionality has been verified.
+A planned file or feature is not considered implemented until the relevant code exists in the repository and its functionality has been verified.
 
-This document must be updated in the same commit that adds, renames, or removes files, so the documented structure remains consistent with the actual repository.
+This document must be updated in the same commit that adds, renames, or removes files. Implemented and planned sections must accurately reflect the repository's current state.
+

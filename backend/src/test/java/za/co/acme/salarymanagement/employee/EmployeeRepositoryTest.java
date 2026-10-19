@@ -3,46 +3,64 @@ package za.co.acme.salarymanagement.employee;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.annotation.Transactional;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("test")
+@Transactional
 class EmployeeRepositoryTest {
 
     @Autowired
     private EmployeeRepository repository;
 
+    /**
+     * Unique data per test. The tests run against real Postgres (see
+     * Decision 12 in docs/design-decisions.md). Combined with @Transactional
+     * above, each test method runs in its own transaction and rolls back at
+     * the end — so no state leaks between tests or into the shared database.
+     */
+    private static String uniqueEmployeeNumber() {
+        return "T-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+    }
+
+    private static String uniqueEmail(String employeeNumber) {
+        return employeeNumber.toLowerCase() + "@test.acme";
+    }
+
     @Test
     void savesAndRetrievesEmployeeById() {
+        String number = uniqueEmployeeNumber();
         Employee saved = repository.save(new Employee(
-                "EMP-0001", "Ada", "Lovelace",
-                "ada.lovelace@acme.test", "GB", "Engineering",
+                number, "Ada", "Lovelace",
+                uniqueEmail(number), "GB", "Engineering",
                 EmploymentStatus.ACTIVE
         ));
 
         Optional<Employee> found = repository.findById(saved.getId());
 
         assertThat(found).isPresent();
-        assertThat(found.get().getEmployeeNumber()).isEqualTo("EMP-0001");
-        assertThat(found.get().getEmail()).isEqualTo("ada.lovelace@acme.test");
+        assertThat(found.get().getEmployeeNumber()).isEqualTo(number);
         assertThat(found.get().getCreatedAt()).isNotNull();
         assertThat(found.get().getUpdatedAt()).isNotNull();
     }
 
     @Test
     void findsByEmployeeNumber() {
+        String number = uniqueEmployeeNumber();
         repository.save(new Employee(
-                "EMP-0002", "Grace", "Hopper",
-                "grace.hopper@acme.test", "US", "Engineering",
+                number, "Grace", "Hopper",
+                uniqueEmail(number), "US", "Engineering",
                 EmploymentStatus.ACTIVE
         ));
 
-        Optional<Employee> found = repository.findByEmployeeNumber("EMP-0002");
+        Optional<Employee> found = repository.findByEmployeeNumber(number);
 
         assertThat(found).isPresent();
         assertThat(found.get().getFirstName()).isEqualTo("Grace");
@@ -50,13 +68,15 @@ class EmployeeRepositoryTest {
 
     @Test
     void findsByEmail() {
+        String number = uniqueEmployeeNumber();
+        String email = uniqueEmail(number);
         repository.save(new Employee(
-                "EMP-0003", "Alan", "Turing",
-                "alan.turing@acme.test", "GB", "Research",
+                number, "Alan", "Turing",
+                email, "GB", "Research",
                 EmploymentStatus.ON_LEAVE
         ));
 
-        Optional<Employee> found = repository.findByEmail("alan.turing@acme.test");
+        Optional<Employee> found = repository.findByEmail(email);
 
         assertThat(found).isPresent();
         assertThat(found.get().getLastName()).isEqualTo("Turing");
@@ -64,18 +84,19 @@ class EmployeeRepositoryTest {
 
     @Test
     void existsByEmployeeNumberReturnsTrueForExisting() {
+        String number = uniqueEmployeeNumber();
         repository.save(new Employee(
-                "EMP-0004", "Katherine", "Johnson",
-                "katherine.johnson@acme.test", "US", "Research",
+                number, "Katherine", "Johnson",
+                uniqueEmail(number), "US", "Research",
                 EmploymentStatus.ACTIVE
         ));
 
-        assertThat(repository.existsByEmployeeNumber("EMP-0004")).isTrue();
-        assertThat(repository.existsByEmployeeNumber("EMP-9999")).isFalse();
+        assertThat(repository.existsByEmployeeNumber(number)).isTrue();
+        assertThat(repository.existsByEmployeeNumber("NOT-" + uniqueEmployeeNumber())).isFalse();
     }
 
     @Test
     void existsByEmailReturnsFalseForUnknown() {
-        assertThat(repository.existsByEmail("nobody@acme.test")).isFalse();
+        assertThat(repository.existsByEmail(uniqueEmail(uniqueEmployeeNumber()))).isFalse();
     }
 }
