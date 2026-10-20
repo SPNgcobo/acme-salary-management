@@ -2,8 +2,10 @@ package za.co.acme.salarymanagement.employee;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import za.co.acme.salarymanagement.common.DuplicateEmployeeException;
 import za.co.acme.salarymanagement.common.EmployeeNotFoundException;
 import za.co.acme.salarymanagement.employee.dto.EmployeeRequest;
 import za.co.acme.salarymanagement.employee.dto.EmployeeResponse;
@@ -23,17 +25,14 @@ public class EmployeeService {
 
     @Transactional
     public EmployeeResponse create(EmployeeRequest request) {
-        // Trim string inputs defensively, then check uniqueness at the service
-        // layer so users get a friendly message. The database unique constraints
-        // are still the ultimate authority.
         String employeeNumber = request.employeeNumber().trim();
         String email = request.email().trim();
 
         if (repository.existsByEmployeeNumber(employeeNumber)) {
-            throw new IllegalArgumentException("Employee number already exists: " + employeeNumber);
+            throw new DuplicateEmployeeException("Employee number already exists: " + employeeNumber);
         }
         if (repository.existsByEmail(email)) {
-            throw new IllegalArgumentException("Email already exists: " + email);
+            throw new DuplicateEmployeeException("Email already exists: " + email);
         }
 
         Employee employee = new Employee(
@@ -56,8 +55,26 @@ public class EmployeeService {
                 .orElseThrow(() -> new EmployeeNotFoundException(id));
     }
 
+    /**
+     * Unfiltered list. Retained for callers (e.g. tests) that do not need
+     * search or filter behaviour.
+     */
     @Transactional(readOnly = true)
     public Page<EmployeeResponse> list(Pageable pageable) {
         return repository.findAll(pageable).map(EmployeeResponse::from);
+    }
+
+    /**
+     * Filtered list. If the criteria contain no active filter, falls back to
+     * the unfiltered list to avoid passing a null specification to the
+     * repository (which would throw).
+     */
+    @Transactional(readOnly = true)
+    public Page<EmployeeResponse> list(EmployeeSearchCriteria criteria, Pageable pageable) {
+        Specification<Employee> spec = EmployeeSpecifications.fromCriteria(criteria);
+        if (spec == null) {
+            return repository.findAll(pageable).map(EmployeeResponse::from);
+        }
+        return repository.findAll(spec, pageable).map(EmployeeResponse::from);
     }
 }

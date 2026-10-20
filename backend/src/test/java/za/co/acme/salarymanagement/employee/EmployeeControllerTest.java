@@ -7,32 +7,30 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import tools.jackson.databind.ObjectMapper;
 import java.time.OffsetDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-
+import org.springframework.validation.beanvalidation.MethodValidationPostProcessor;
+import tools.jackson.databind.ObjectMapper;
 import za.co.acme.salarymanagement.common.EmployeeNotFoundException;
 import za.co.acme.salarymanagement.common.GlobalExceptionHandler;
 import za.co.acme.salarymanagement.employee.dto.EmployeeRequest;
 import za.co.acme.salarymanagement.employee.dto.EmployeeResponse;
 
-@WebMvcTest(
-        controllers = EmployeeController.class,
-        properties = "spring.main.allow-bean-definition-overriding=true"
-)
-@org.springframework.context.annotation.Import(GlobalExceptionHandler.class)
-@org.springframework.security.test.context.support.WithMockUser
+@WebMvcTest(controllers = EmployeeController.class)
+@AutoConfigureMockMvc(addFilters = false)
+@Import({GlobalExceptionHandler.class, MethodValidationPostProcessor.class})
 class EmployeeControllerTest {
 
     @Autowired
@@ -43,6 +41,8 @@ class EmployeeControllerTest {
 
     @MockitoBean
     private EmployeeService service;
+
+    // --- create ---
 
     @Test
     void createReturns201WithBody() throws Exception {
@@ -55,7 +55,6 @@ class EmployeeControllerTest {
         ));
 
         mockMvc.perform(post("/api/employees")
-                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isCreated())
@@ -80,12 +79,13 @@ class EmployeeControllerTest {
                 """;
 
         mockMvc.perform(post("/api/employees")
-                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.details").isArray());
     }
+
+    // --- get by id ---
 
     @Test
     void getByIdReturnsEmployee() throws Exception {
@@ -106,14 +106,17 @@ class EmployeeControllerTest {
                 .andExpect(jsonPath("$.message").value("Employee not found with id: 999"));
     }
 
+    // --- list (unfiltered) ---
+
     @Test
     void listReturnsPage() throws Exception {
         Page<EmployeeResponse> page = new PageImpl<>(
                 List.of(sampleResponse(1L, "EMP-1000", "ada@acme.test")),
-                org.springframework.data.domain.PageRequest.of(0, 20),
+                PageRequest.of(0, 20),
                 1
         );
-        when(service.list(any(Pageable.class))).thenReturn(page);
+        when(service.list(any(EmployeeSearchCriteria.class), any(Pageable.class)))
+                .thenReturn(page);
 
         mockMvc.perform(get("/api/employees").param("page", "0").param("size", "20"))
                 .andExpect(status().isOk())
@@ -121,6 +124,56 @@ class EmployeeControllerTest {
                 .andExpect(jsonPath("$.content[0].employeeNumber").value("EMP-1000"))
                 .andExpect(jsonPath("$.totalElements").value(1));
     }
+
+    // --- list (filtered) ---
+
+    @Test
+    void listPassesSearchAndFiltersToService() throws Exception {
+        Page<EmployeeResponse> page = new PageImpl<>(
+                List.of(sampleResponse(1L, "EMP-1000", "ada@acme.test")),
+                PageRequest.of(0, 10),
+                1
+        );
+        when(service.list(any(EmployeeSearchCriteria.class), any(Pageable.class)))
+                .thenReturn(page);
+
+        mockMvc.perform(get("/api/employees")
+                        .param("search", "ada")
+                        .param("country", "GB")
+                        .param("department", "Engineering")
+                        .param("status", "ACTIVE")
+                        .param("page", "0")
+                        .param("size", "10")
+                        .param("sort", "lastName,desc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].employeeNumber").value("EMP-1000"));
+    }
+
+    @Test
+    void listReturns400WhenStatusIsInvalid() throws Exception {
+        mockMvc.perform(get("/api/employees").param("status", "BANANA"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void listReturns400WhenSizeExceedsCap() throws Exception {
+        mockMvc.perform(get("/api/employees").param("size", "500"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void listReturns400WhenSortFieldIsNotWhitelisted() throws Exception {
+        mockMvc.perform(get("/api/employees").param("sort", "passwordHash,asc"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void listReturns400WhenCountryFormatIsInvalid() throws Exception {
+        mockMvc.perform(get("/api/employees").param("country", "GBR"))
+                .andExpect(status().isBadRequest());
+    }
+
+    // --- helper ---
 
     private EmployeeResponse sampleResponse(Long id, String employeeNumber, String email) {
         OffsetDateTime now = OffsetDateTime.now();

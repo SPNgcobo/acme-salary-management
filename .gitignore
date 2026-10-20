@@ -19,6 +19,7 @@ yarn-error.log*
 
 # --- Env / secrets ---
 .env
+backend/.env
 .env.local
 *.local.properties
 application-local.properties
