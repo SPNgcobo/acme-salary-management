@@ -13,15 +13,24 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Verifies that the search/filter specifications produce the expected
- * predicates against a real PostgreSQL database. Each test seeds a small
- * dataset inside a rolled-back transaction, so runs are independent of one
- * another and of any manual data in the shared database.
+ * predicates against a real PostgreSQL database.
+ *
+ * <p>Every test seeds its own small dataset inside a rolled-back transaction.
+ * Because the shared test database may contain rows created by Postman or
+ * by previous test runs (which are not visible to this test's rollback but
+ * <em>are</em> visible to reads), every assertion is scoped to the rows this
+ * test class seeded. The convention: employee numbers here start with
+ * "T-", which is unique to this class and does not collide with real or
+ * Postman-created employees.
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("test")
 @Transactional
 class EmployeeSpecificationsTest {
+
+    /** Prefix used by every employee row this test class creates. */
+    private static final String TEST_PREFIX = "T-";
 
     @Autowired
     private EmployeeRepository repository;
@@ -44,6 +53,15 @@ class EmployeeSpecificationsTest {
         ));
     }
 
+    /** Restricts a specification to rows this test class seeded. */
+    private static Specification<Employee> onlyThisTestClass() {
+        return (root, query, cb) -> cb.like(root.get("employeeNumber"), TEST_PREFIX + "%");
+    }
+
+    private static Specification<Employee> scoped(Specification<Employee> spec) {
+        return spec == null ? onlyThisTestClass() : spec.and(onlyThisTestClass());
+    }
+
     @Test
     void matchesSearchReturnsNullForBlank() {
         assertThat(EmployeeSpecifications.matchesSearch(null)).isNull();
@@ -53,7 +71,7 @@ class EmployeeSpecificationsTest {
     @Test
     void matchesSearchFindsByFirstNameCaseInsensitive() {
         seed();
-        Specification<Employee> spec = EmployeeSpecifications.matchesSearch("ADA");
+        Specification<Employee> spec = scoped(EmployeeSpecifications.matchesSearch("ADA"));
 
         assertThat(repository.findAll(spec))
                 .extracting(Employee::getFirstName)
@@ -63,7 +81,7 @@ class EmployeeSpecificationsTest {
     @Test
     void matchesSearchFindsByEmailSubstring() {
         seed();
-        Specification<Employee> spec = EmployeeSpecifications.matchesSearch("grace@");
+        Specification<Employee> spec = scoped(EmployeeSpecifications.matchesSearch("grace@"));
 
         assertThat(repository.findAll(spec))
                 .extracting(Employee::getEmployeeNumber)
@@ -73,7 +91,7 @@ class EmployeeSpecificationsTest {
     @Test
     void hasCountryFiltersByUppercaseCode() {
         seed();
-        Specification<Employee> spec = EmployeeSpecifications.hasCountry("gb");
+        Specification<Employee> spec = scoped(EmployeeSpecifications.hasCountry("gb"));
 
         assertThat(repository.findAll(spec))
                 .extracting(Employee::getEmployeeNumber)
@@ -83,7 +101,7 @@ class EmployeeSpecificationsTest {
     @Test
     void hasDepartmentMatchesCaseInsensitive() {
         seed();
-        Specification<Employee> spec = EmployeeSpecifications.hasDepartment("engineering");
+        Specification<Employee> spec = scoped(EmployeeSpecifications.hasDepartment("engineering"));
 
         assertThat(repository.findAll(spec))
                 .extracting(Employee::getEmployeeNumber)
@@ -93,7 +111,7 @@ class EmployeeSpecificationsTest {
     @Test
     void hasStatusFiltersByEnum() {
         seed();
-        Specification<Employee> spec = EmployeeSpecifications.hasStatus(EmploymentStatus.ON_LEAVE);
+        Specification<Employee> spec = scoped(EmployeeSpecifications.hasStatus(EmploymentStatus.ON_LEAVE));
 
         assertThat(repository.findAll(spec))
                 .extracting(Employee::getEmployeeNumber)
@@ -107,7 +125,7 @@ class EmployeeSpecificationsTest {
                 null, "GB", "Engineering", EmploymentStatus.ACTIVE
         );
 
-        assertThat(repository.findAll(EmployeeSpecifications.fromCriteria(criteria)))
+        assertThat(repository.findAll(scoped(EmployeeSpecifications.fromCriteria(criteria))))
                 .extracting(Employee::getEmployeeNumber)
                 .containsExactly("T-ADA");
     }
@@ -126,7 +144,7 @@ class EmployeeSpecificationsTest {
         );
 
         Optional<Employee> result = repository
-                .findAll(EmployeeSpecifications.fromCriteria(criteria))
+                .findAll(scoped(EmployeeSpecifications.fromCriteria(criteria)))
                 .stream()
                 .findFirst();
 

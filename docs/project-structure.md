@@ -1,10 +1,10 @@
 # Project Structure
 
-> **Status:** Living document. Update this file whenever files are added, renamed, or removed. Files or features marked **Planned** do not yet exist or are not yet implemented. This document distinguishes implemented components from planned work.
+> **Status:** Living document. Update this file whenever files are added, renamed, or removed. Components marked **Planned** do not yet exist in the repository or have not yet been implemented.
 
 ## 1. Implemented Repository Structure
 
-The following tree documents the current repository structure as reported during development. Verify it against the actual repository before submission.
+The following structure reflects the files and directories currently recorded as implemented.
 
 ```text
 acme-salary-management/
@@ -23,6 +23,7 @@ acme-salary-management/
 │   ├── .mvn/
 │   ├── mvnw
 │   ├── mvnw.cmd
+│   ├── .env                     # Local only; Git-ignored
 │   ├── pom.xml
 │   └── src/
 │       ├── main/
@@ -32,231 +33,219 @@ acme-salary-management/
 │       │   │   │   ├── ApiErrorResponse.java
 │       │   │   │   ├── DevSecurityConfig.java
 │       │   │   │   ├── DuplicateEmployeeException.java
+│       │   │   │   ├── DuplicateSalaryException.java
 │       │   │   │   ├── EmployeeNotFoundException.java
 │       │   │   │   ├── GlobalExceptionHandler.java
+│       │   │   │   ├── InvalidCurrencyException.java
 │       │   │   │   └── WebConfig.java
-│       │   │   └── employee/
-│       │   │       ├── Employee.java
-│       │   │       ├── EmployeeController.java
-│       │   │       ├── EmployeeRepository.java
-│       │   │       ├── EmployeeSearchCriteria.java
-│       │   │       ├── EmployeeService.java
-│       │   │       ├── EmployeeSpecifications.java
-│       │   │       ├── EmploymentStatus.java
+│       │   │   ├── employee/
+│       │   │   │   ├── Employee.java
+│       │   │   │   ├── EmployeeController.java
+│       │   │   │   ├── EmployeeRepository.java
+│       │   │   │   ├── EmployeeSearchCriteria.java
+│       │   │   │   ├── EmployeeService.java
+│       │   │   │   ├── EmployeeSpecifications.java
+│       │   │   │   ├── EmploymentStatus.java
+│       │   │   │   └── dto/
+│       │   │   │       ├── EmployeeRequest.java
+│       │   │   │       └── EmployeeResponse.java
+│       │   │   └── salary/
+│       │   │       ├── SalaryRecord.java
+│       │   │       ├── SalaryRecordController.java
+│       │   │       ├── SalaryRecordRepository.java
+│       │   │       ├── SalaryRecordService.java
 │       │   │       └── dto/
-│       │   │           ├── EmployeeRequest.java
-│       │   │           └── EmployeeResponse.java
+│       │   │           ├── CurrentSalaryResponse.java
+│       │   │           ├── SalaryRecordRequest.java
+│       │   │           └── SalaryRecordResponse.java
 │       │   └── resources/
 │       │       ├── application.properties
 │       │       ├── application-dev.properties
 │       │       └── db/migration/
-│       │           └── V1__create_employees.sql
+│       │           ├── V1__create_employees.sql
+│       │           ├── V2__create_salary_records.sql
+│       │           └── V3__alter_salary_records_currency_code.sql
 │       └── test/
 │           ├── java/za/co/acme/salarymanagement/
 │           │   ├── SalaryManagementApplicationTests.java
-│           │   └── employee/
-│           │       ├── EmployeeControllerTest.java
-│           │       ├── EmployeeRepositoryTest.java
-│           │       ├── EmployeeServiceTest.java
-│           │       └── EmployeeSpecificationsTest.java
+│           │   ├── employee/
+│           │   │   ├── EmployeeControllerTest.java
+│           │   │   ├── EmployeeRepositoryTest.java
+│           │   │   ├── EmployeeServiceTest.java
+│           │   │   └── EmployeeSpecificationsTest.java
+│           │   └── salary/
+│           │       ├── SalaryRecordControllerTest.java
+│           │       ├── SalaryRecordRepositoryTest.java
+│           │       └── SalaryRecordServiceTest.java
 │           └── resources/
 │               └── application-test.properties
-├── frontend/                 # Empty; Angular application not created yet
-└── scripts/                  # Empty
+├── frontend/                    # Empty; Angular application not created yet
+└── scripts/                     # Empty
 ```
-
-### Structure overview
-
-| Directory or file | Responsibility |
-|---|---|
-| `backend/` | Spring Boot REST API, business logic, persistence, and backend tests |
-| `frontend/` | Reserved for the planned Angular application |
-| `docs/` | Requirements, architecture, design decisions, project structure, and AI work log |
-| `docs/postman/` | Postman collection for API testing |
-| `scripts/` | Reserved for seed-data generation and utility scripts |
-| `.env.example` | Template for local environment configuration using placeholder values |
-| `.gitignore` | Excludes local configuration, build output, and other files that should not be committed |
 
 ## 2. Planned Structure
 
-The following components are planned and must not be treated as implemented until their code or configuration exists.
+The following components are planned but are not yet represented as implemented files.
 
 ```text
 backend/src/main/java/za/co/acme/salarymanagement/
-├── salary/                         # Planned salary management module
-├── report/                         # Planned reporting module
-└── security/                       # Planned authentication and authorisation module
+├── report/                      # Planned reporting module
+└── security/                    # Planned dedicated security module
 
-backend/src/main/resources/db/migration/
-└── V2__create_salary_records.sql   # Planned salary history migration
-
-backend/Dockerfile                  # Planned
-frontend/Dockerfile                 # Planned
-docker-compose.yml                  # Planned
-scripts/seed.*                      # Planned seed-data generator
+backend/Dockerfile               # Planned
+frontend/Dockerfile              # Planned
+docker-compose.yml               # Planned
+scripts/seed-*                   # Planned seed-data scripts
 ```
 
-The exact files within these planned modules will be documented as implementation progresses.
+> **Note:** `DevSecurityConfig.java` currently exists in the `common` package for local development. The planned `security` package is intended for the dedicated security implementation.
 
 ## 3. Backend Responsibilities
 
-### 3.1 Employee Module
+### Employee Module
 
-**Location:** `backend/src/main/java/za/co/acme/salarymanagement/employee/`
+**Package:** `za.co.acme.salarymanagement.employee`
 
-Responsible for employee profile management, including:
+Manages employee profiles and provides employee creation, retrieval, directory listing, search, filtering, pagination, and sorting.
 
-- Creating and retrieving employee records.
-- Listing employees through a directory endpoint.
-- Searching and filtering employee records.
-- Supporting pagination and sorting.
-- Validating incoming data and handling duplicate or missing employees.
+Search and filtering use `EmployeeSpecifications`, which builds composable Spring Data JPA specification predicates. `Pageable` handles pagination and sorting.
 
-The reported implementation includes `EmployeeSpecifications` and `EmployeeSearchCriteria` for composing search criteria and database queries. Search, filtering, pagination, and sorting should be confirmed through automated tests and API requests.
+### Salary Module
 
-### 3.2 Salary Module
+**Package:** `za.co.acme.salarymanagement.salary`
 
-**Status:** Planned
+Manages employee salary records as historical entries. Each salary change creates a new record with its own effective date and currency.
 
-Responsible for:
+The API exposes endpoints under `/api/employees/{employeeId}/salaries` for creating salary records, listing salary history, and retrieving the current salary.
 
-- Managing salary amounts and currency codes.
-- Recording salary effective dates.
-- Maintaining append-only salary history.
-- Preserving previous salary records when a new salary takes effect.
+Currency codes are validated against `java.util.Currency` using ISO 4217 currency codes.
 
-Salary changes must create new historical records rather than overwrite previous salary information.
+**Append-only history:** The `SalaryRecord` entity does not expose setters for `amount`, `currencyCode`, `effectiveDate`, or `employee`. Salary changes are intended to be recorded as new entries rather than updates to historical records.
 
-### 3.3 Reporting Module
+**Current-salary resolution:** The current salary is the latest record whose `effectiveDate` is on or before the current date. Future-dated records remain in salary history but are not treated as the current salary.
+
+### Reporting Module
 
 **Status:** Planned
 
-Responsible for:
+Will provide dashboard statistics and currency-aware salary reports grouped by country and department.
 
-- Providing dashboard statistics.
-- Producing salary reports grouped by country and department.
-- Reporting amounts by currency without incorrectly combining different currencies.
-- Supporting report filters and CSV export.
+Reports must not combine different currencies into a single monetary total unless an explicit exchange-rate methodology is defined.
 
-### 3.4 Security Module
+### Security Module
 
-**Status:** In progress; dedicated module and JWT implementation planned.
+**Status:** Dedicated module planned; development security configuration exists.
 
-Responsible for authentication and authorisation for sensitive operations, including employee and salary data.
+Will handle authentication and authorisation for sensitive operations.
 
-The development-only `DevSecurityConfig` is located in the `common/` package. It is intended for local testing and must not be treated as production security.
+Security controls must be appropriate for the intended deployment environment. The development configuration must not be used as production security.
 
-### 3.5 Common Module
+### Common Module
 
-**Location:** `backend/src/main/java/za/co/acme/salarymanagement/common/`
+**Package:** `za.co.acme.salarymanagement.common`
 
-Contains shared application components, including:
+Provides shared API error responses, exception handling, and web configuration.
 
-- `ApiErrorResponse.java` — standard API error response structure.
-- `DuplicateEmployeeException.java` — represents duplicate employee conflicts.
-- `EmployeeNotFoundException.java` — represents employee lookup failures.
-- `GlobalExceptionHandler.java` — centralises exception-to-HTTP-response handling.
-- `WebConfig.java` — shared web and pagination configuration.
-- `DevSecurityConfig.java` — development-profile security configuration.
+Key components include:
 
-The error handler should provide consistent responses for supported validation, type-mismatch, conflict, and not-found scenarios. Confirm these behaviours against the current tests.
+- `ApiErrorResponse.java`: Standard API error response structure.
+- `GlobalExceptionHandler.java`: Centralised handling of validation, type-mismatch, conflict, and not-found errors.
+- `DuplicateEmployeeException.java`: Employee conflict handling.
+- `DuplicateSalaryException.java`: Salary record conflict handling.
+- `InvalidCurrencyException.java`: Invalid currency handling.
+- `EmployeeNotFoundException.java`: Employee not-found handling.
+- `DevSecurityConfig.java`: Development-only security configuration.
+- `WebConfig.java`: Web and Spring Data configuration.
+
+The exception handler should return consistent HTTP status codes and error response formats.
 
 ## 4. Configuration Files
 
-### `application.properties`
+| File | Purpose |
+|---|---|
+| `backend/src/main/resources/application.properties` | Base Spring Boot configuration, datasource environment placeholders, Flyway, Hibernate validation, Actuator, and logging. |
+| `backend/src/main/resources/application-dev.properties` | Development-specific configuration, including application logging. |
+| `backend/src/test/resources/application-test.properties` | Test profile configuration, including database and schema validation settings. |
+| `backend/.env` | Local environment variables. Git-ignored and must never be committed. |
+| `.env.example` | Committed root-level template containing placeholder configuration values. |
 
-**Location:** `backend/src/main/resources/application.properties`
+### Base Configuration
 
-Contains base Spring Boot configuration shared across profiles.
+`application.properties` provides shared configuration across profiles. It uses environment variable placeholders such as:
 
-The reported configuration includes:
+- `${DB_URL:...}`
+- `${DB_USERNAME:...}`
+- `${DB_PASSWORD:...}`
 
-- Database connection settings using environment variable placeholders such as `${DB_URL:...}`, `${DB_USERNAME:...}`, and `${DB_PASSWORD:...}`.
-- Flyway migration settings.
-- Hibernate schema validation.
-- Actuator configuration.
-- Logging configuration.
+It does not set a default active Spring profile. Profile selection is external.
 
-The base configuration does not select a default active profile. Profile selection is provided externally.
+### Development Configuration
 
-### `application-dev.properties`
+`application-dev.properties` contains development-specific overrides and is loaded when the `dev` profile is active.
 
-**Location:** `backend/src/main/resources/application-dev.properties`
+The `dev` profile permits unauthenticated requests and disables CSRF protection through `DevSecurityConfig`. This configuration is strictly for local API testing.
 
-Contains development-only configuration, loaded when the `dev` profile is active. The reported purpose includes adjusting application logging.
+### Test Configuration
 
-Development-only settings must not weaken production security.
+`application-test.properties` configures the test profile used by test classes annotated with `@ActiveProfiles("test")`.
 
-### `application-test.properties`
+The current setup points to the `acme_salary_management` PostgreSQL database, enables Flyway, and configures Hibernate schema validation.
 
-**Location:** `backend/src/test/resources/application-test.properties`
+Tests that use this database must be isolated appropriately. Transaction rollback helps with isolation for transactional tests, but does not automatically roll back every possible database side effect.
 
-Contains configuration for tests that activate the `test` profile.
+### Environment Variables
 
-The documented setup uses PostgreSQL, Hibernate schema validation, and Flyway. Tests must be checked against the actual configuration to confirm which database they use and how test data is isolated.
+The `springboot4-dotenv` library loads local environment values from `backend/.env` when the application is launched with the expected working directory and configuration.
 
-If tests share a local database, use appropriate transaction rollback or other isolation mechanisms to prevent test data from affecting development data.
+- `.env.example` is stored at the repository root and contains placeholders.
+- `backend/.env` contains real local values and must remain Git-ignored.
+- `SPRING_PROFILES_ACTIVE=dev` is used for local development.
+- Production must set `SPRING_PROFILES_ACTIVE=prod` through the hosting environment and supply secrets through its environment configuration.
 
-### `.env` and `.env.example`
-
-The repository uses environment variables to configure database access and other environment-specific settings.
-
-- **`.env.example`** is the committed template and must contain placeholder values only.
-- **`.env`** contains local values and must remain excluded from version control.
-- The reported local setup uses `backend/.env` when launching the backend from the `backend/` working directory.
-- The `springboot4-dotenv` library is intended to load local environment variables. Confirm the dependency and its working-directory behaviour against the current `pom.xml` and application startup configuration.
-- `SPRING_PROFILES_ACTIVE` can select the intended profile for local development. Production profile selection should be configured by the deployment environment.
-
-Never include actual database passwords, JWT signing secrets, or other credentials in this document.
+Never commit passwords, JWT secrets, or other sensitive configuration.
 
 ## 5. Frontend Responsibilities
 
 **Status:** Planned. The Angular application has not yet been created.
 
-The planned frontend will include the following areas:
+The planned frontend areas are:
 
 | Area | Responsibility |
 |---|---|
-| Authentication | Sign-in and authentication screens |
-| Dashboard | Employee counts, country coverage, and salary statistics |
-| Employees | Employee directory, search, filters, pagination, and employee details |
-| Salaries | Salary updates and historical salary records |
-| Reports | Country and department reports, filters, and CSV export |
-| Core | Application-wide services, route guards, and HTTP interceptors |
-| Shared | Reusable components and common models |
+| Authentication | Sign-in and authentication screens. |
+| Dashboard | Employee counts, country coverage, and salary statistics. |
+| Employees | Employee directory, search, filters, pagination, and employee details. |
+| Salaries | Salary updates and historical records. |
+| Reports | Country and department reports, filtering, and CSV export. |
+| Core | Application-wide services, route guards, and HTTP interceptors. |
+| Shared | Reusable components and common models. |
 
-The final frontend directory structure will be documented once the Angular application has been created.
+The frontend structure and responsibilities should be updated as implementation progresses.
 
 ## 6. API Testing
 
-**Postman collection:** `docs/postman/acme-salary-management.postman_collection.json`
+The Postman collection is stored at:
 
-The reported collection covers employee API scenarios, including search, filtering, pagination, sorting, and validation errors.
+```text
+docs/postman/acme-salary-management.postman_collection.json
+```
 
-Maintain the collection as endpoints and request or response contracts evolve.
+It covers the implemented employee endpoints and the salary endpoints, including:
 
-API verification should include:
+- Employee creation and retrieval.
+- Employee listing, search, filtering, and sorting.
+- Request validation and invalid sort fields.
+- Salary creation and history listing.
+- Current-salary retrieval.
+- Duplicate salary dates and invalid currency codes.
+- Missing employees and oversized page requests.
 
-- Successful employee creation and retrieval.
-- Invalid request data and validation errors.
-- Duplicate employee handling.
-- Missing employee handling.
-- Search and filter combinations.
-- Pagination limits and supported sort fields.
-- Appropriate security behaviour for the active profile.
+The collection must be updated whenever API endpoints, request schemas, or response contracts change.
 
-Run requests against the current application and record actual results. Document required environment variables and authentication steps without storing credentials or secrets in the collection.
+Requests should be verified against a running application using the development profile. The collection must not contain real credentials or secrets.
 
-## 7. Implementation and Documentation Rules
+## 7. Implementation Rule
 
-To keep this document accurate throughout development:
+A file or feature is not considered implemented merely because it appears in this document. The relevant code must exist in the repository, and the functionality must be verified through appropriate tests or other documented checks.
 
-1. **Verify files:** List a file as implemented only when it exists in the repository.
-2. **Verify functionality:** Mark a feature as verified only after its relevant tests or checks pass.
-3. **Keep planned work separate:** Do not describe planned modules or features as completed.
-4. **Update documentation with code:** Update this document in the same commit when repository structure changes.
-5. **Record current test results:** Re-run relevant tests after changes and distinguish historical results from current results.
-6. **Protect sensitive data:** Never commit real credentials, secrets, or personal employee data.
-7. **Keep the tree current:** Add new files and remove or rename entries when the repository changes.
-
-This document is a living reference for the repository layout, module responsibilities, configuration, and implementation progress of the ACME Salary Management System.
+Update this document in the same commit that adds, renames, or removes files.

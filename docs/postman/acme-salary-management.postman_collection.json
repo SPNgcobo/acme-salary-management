@@ -1,13 +1,26 @@
 {
   "info": {
-    "_postman_id": "8f0b6bb9-8341-47ad-b888-c7c0686d4de2",
+    "_postman_id": "7b6c2597-761f-4b04-8587-72166a5a62e2",
     "name": "ACME Salary Management",
+    "description": "Smoke tests for the ACME Salary Management API. Run in order.\n\n- Requests 01-06 exercise the employee module.\n- Requests 07-17 exercise the salary module.\n- Request 02 sets the collection variable `employeeId` from its response, so downstream requests use the created employee.\n- If you re-run the whole collection against the same database, the create endpoints will return 409 Conflict on the second run because employee numbers, emails, and (employee_id, effective_date) pairs must be unique. This is expected: the collection is a persistence test, not an idempotent fixture. To run cleanly a second time, use a different Postgres database or delete the test rows manually.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "42565763"
   },
   "item": [
     {
-      "name": "01 — List employees",
+      "name": "01 - List employees (initial state)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('body has content array', function () { pm.expect(pm.response.json()).to.have.property('content'); });"
+            ]
+          }
+        }
+      ],
       "request": {
         "method": "GET",
         "header": [],
@@ -27,19 +40,36 @@
       "response": []
     },
     {
-      "name": "02 — Create employee",
+      "name": "02 - Create employee Ada Lovelace (sets employeeId)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code === 201) {",
+              "    const body = pm.response.json();",
+              "    pm.collectionVariables.set('employeeId', body.id);",
+              "    console.log('Captured employeeId =', body.id);",
+              "} else if (pm.response.code === 409) {",
+              "    console.log('Employee already exists. Use 03 to fetch by id or reset the database.');",
+              "}",
+              "pm.test('status is 201 or 409', function () { pm.expect([201, 409]).to.include(pm.response.code); });"
+            ]
+          }
+        }
+      ],
       "request": {
         "method": "POST",
         "header": [
           {
             "key": "Content-Type",
-            "value": "application/json",
-            "type": "text"
+            "value": "application/json"
           }
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\r\n  \"employeeNumber\": \"EMP-0001\",\r\n  \"firstName\": \"Ada\",\r\n  \"lastName\": \"Lovelace\",\r\n  \"email\": \"ada.lovelace@acme.test\",\r\n  \"countryCode\": \"GB\",\r\n  \"department\": \"Engineering\",\r\n  \"employmentStatus\": \"ACTIVE\"\r\n}",
+          "raw": "{\n  \"employeeNumber\": \"EMP-SALARY-01\",\n  \"firstName\": \"Grace\",\n  \"lastName\": \"Hopper\",\n  \"email\": \"grace.hopper@acme.test\",\n  \"countryCode\": \"US\",\n  \"department\": \"Engineering\",\n  \"employmentStatus\": \"ACTIVE\"\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -57,23 +87,18 @@
             "api",
             "employees"
           ]
-        }
+        },
+        "description": "Creates the employee used by the salary requests. A test script captures the returned id into the collection variable `employeeId`."
       },
       "response": []
     },
     {
-      "name": "03 — Get employee by id",
+      "name": "03 - Get employee by id",
       "request": {
         "method": "GET",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json",
-            "type": "text"
-          }
-        ],
+        "header": [],
         "url": {
-          "raw": "http://localhost:8080/api/employees/1",
+          "raw": "http://localhost:8080/api/employees/{{employeeId}}",
           "protocol": "http",
           "host": [
             "localhost"
@@ -82,26 +107,25 @@
           "path": [
             "api",
             "employees",
-            "1"
+            "{{employeeId}}"
           ]
         }
       },
       "response": []
     },
     {
-      "name": "04 — Validation error",
+      "name": "04 - Validation error (expect 400)",
       "request": {
         "method": "POST",
         "header": [
           {
             "key": "Content-Type",
-            "value": "application/json",
-            "type": "text"
+            "value": "application/json"
           }
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\r\n  \"employeeNumber\": \"\",\r\n  \"firstName\": \"Ada\",\r\n  \"lastName\": \"Lovelace\",\r\n  \"email\": \"not-an-email\",\r\n  \"countryCode\": \"gb\",\r\n  \"department\": \"Engineering\",\r\n  \"employmentStatus\": \"ACTIVE\"\r\n}",
+          "raw": "{\n  \"employeeNumber\": \"\",\n  \"firstName\": \"Ada\",\n  \"lastName\": \"Lovelace\",\n  \"email\": \"not-an-email\",\n  \"countryCode\": \"gb\",\n  \"department\": \"Engineering\",\n  \"employmentStatus\": \"ACTIVE\"\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -124,19 +148,18 @@
       "response": []
     },
     {
-      "name": "05 — Duplicate employee number",
+      "name": "05 - Duplicate employee number (expect 409)",
       "request": {
         "method": "POST",
         "header": [
           {
             "key": "Content-Type",
-            "value": "application/json",
-            "type": "text"
+            "value": "application/json"
           }
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\r\n  \"employeeNumber\": \"EMP-0001\",\r\n  \"firstName\": \"Ada\",\r\n  \"lastName\": \"Lovelace\",\r\n  \"email\": \"ada.lovelace@acme.test\",\r\n  \"countryCode\": \"GB\",\r\n  \"department\": \"Engineering\",\r\n  \"employmentStatus\": \"ACTIVE\"\r\n}",
+          "raw": "{\n  \"employeeNumber\": \"EMP-SALARY-01\",\n  \"firstName\": \"Grace\",\n  \"lastName\": \"Hopper\",\n  \"email\": \"grace.hopper@acme.test\",\n  \"countryCode\": \"US\",\n  \"department\": \"Engineering\",\n  \"employmentStatus\": \"ACTIVE\"\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -159,16 +182,10 @@
       "response": []
     },
     {
-      "name": "06 — Not found",
+      "name": "06 - Employee not found (expect 404)",
       "request": {
         "method": "GET",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json",
-            "type": "text"
-          }
-        ],
+        "header": [],
         "url": {
           "raw": "http://localhost:8080/api/employees/999999",
           "protocol": "http",
@@ -184,6 +201,374 @@
         }
       },
       "response": []
+    },
+    {
+      "name": "07 - Record first salary 2025-01-01",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": 50000.00,\n  \"currencyCode\": \"GBP\",\n  \"effectiveDate\": \"2025-01-01\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/employees/{{employeeId}}/salaries",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "employees",
+            "{{employeeId}}",
+            "salaries"
+          ]
+        },
+        "description": "On a second run against the same database this returns 409 (duplicate employee_id + effective_date), which is expected."
+      },
+      "response": []
+    },
+    {
+      "name": "08 - Record second salary 2026-01-01",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": 55000.00,\n  \"currencyCode\": \"GBP\",\n  \"effectiveDate\": \"2026-01-01\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/employees/{{employeeId}}/salaries",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "employees",
+            "{{employeeId}}",
+            "salaries"
+          ]
+        },
+        "description": "Second salary in the series. On a second run this returns 409, expected."
+      },
+      "response": []
+    },
+    {
+      "name": "09 - Record future salary 2030-01-01",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": 60000.00,\n  \"currencyCode\": \"GBP\",\n  \"effectiveDate\": \"2030-01-01\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/employees/{{employeeId}}/salaries",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "employees",
+            "{{employeeId}}",
+            "salaries"
+          ]
+        },
+        "description": "Future-dated salary (within the 10-year sanity bound). Appears in history but not in current. On a second run this returns 409, expected."
+      },
+      "response": []
+    },
+    {
+      "name": "10 - Get current salary (expect 2026-01-01 record)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+              "if (pm.response.code === 200) {",
+              "    const body = pm.response.json();",
+              "    pm.test('current salary is the 2026-01-01 record', function () {",
+              "        pm.expect(body.effectiveDate).to.equal('2026-01-01');",
+              "        pm.expect(body.amount).to.eql(55000.00);",
+              "        pm.expect(body.currencyCode).to.equal('GBP');",
+              "    });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8080/api/employees/{{employeeId}}/salaries/current",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "employees",
+            "{{employeeId}}",
+            "salaries",
+            "current"
+          ]
+        },
+        "description": "Current salary is the latest effective record on or before today. The 2030 record must not appear."
+      },
+      "response": []
+    },
+    {
+      "name": "11 - List salary history (default sort, expect 3 records)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+              "if (pm.response.code === 200) {",
+              "    const body = pm.response.json();",
+              "    pm.test('3 salary records', function () { pm.expect(body.content.length).to.eql(3); });",
+              "    pm.test('ordered 2030 -> 2026 -> 2025', function () {",
+              "        pm.expect(body.content[0].effectiveDate).to.equal('2030-01-01');",
+              "        pm.expect(body.content[1].effectiveDate).to.equal('2026-01-01');",
+              "        pm.expect(body.content[2].effectiveDate).to.equal('2025-01-01');",
+              "    });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8080/api/employees/{{employeeId}}/salaries",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "employees",
+            "{{employeeId}}",
+            "salaries"
+          ]
+        },
+        "description": "History is paginated with default sort effectiveDate descending. The three seeded records appear in that order."
+      },
+      "response": []
+    },
+    {
+      "name": "12 - Duplicate effective date (expect 409)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": 70000.00,\n  \"currencyCode\": \"GBP\",\n  \"effectiveDate\": \"2025-01-01\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/employees/{{employeeId}}/salaries",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "employees",
+            "{{employeeId}}",
+            "salaries"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "13 - Invalid currency (expect 400)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": 70000.00,\n  \"currencyCode\": \"XYZ\",\n  \"effectiveDate\": \"2027-01-01\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/employees/{{employeeId}}/salaries",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "employees",
+            "{{employeeId}}",
+            "salaries"
+          ]
+        },
+        "description": "XYZ is not a valid ISO 4217 code, so this returns 400 with 'Unknown ISO 4217 currency code: XYZ'."
+      },
+      "response": []
+    },
+    {
+      "name": "14 - Missing employee (expect 404)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8080/api/employees/999999/salaries/current",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "employees",
+            "999999",
+            "salaries",
+            "current"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "15 - Oversized page size (expect 400)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8080/api/employees/{{employeeId}}/salaries?size=500",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "employees",
+            "{{employeeId}}",
+            "salaries"
+          ],
+          "query": [
+            {
+              "key": "size",
+              "value": "500"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "16 - Get employee by id (sanity after salary tests)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8080/api/employees/{{employeeId}}",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "employees",
+            "{{employeeId}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "17 - List employees after tests",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8080/api/employees",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "employees"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "employeeId",
+      "value": ""
     }
   ]
 }

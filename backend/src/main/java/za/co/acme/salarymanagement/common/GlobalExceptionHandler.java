@@ -33,12 +33,6 @@ public class GlobalExceptionHandler {
         return buildBadRequest(request, "Validation failed", details);
     }
 
-    /**
-     * Handles failures on method-level parameters, e.g.
-     * {@code @RequestParam @Max(100) int size}. Those raise a
-     * {@link ConstraintViolationException} rather than
-     * {@link MethodArgumentNotValidException}.
-     */
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<ApiErrorResponse> handleConstraintViolation(
             ConstraintViolationException ex,
@@ -51,13 +45,6 @@ public class GlobalExceptionHandler {
         return buildBadRequest(request, "Invalid request parameter", details);
     }
 
-    /**
-     * Handles type conversion failures on method parameters, e.g. an unknown
-     * enum value in {@code status=BANANA} or a non-numeric {@code page}.
-     * Spring wraps the underlying IllegalArgumentException in
-     * {@link MethodArgumentTypeMismatchException}; this handler returns a
-     * clean 400 rather than letting it fall through to a generic mapping.
-     */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ApiErrorResponse> handleTypeMismatch(
             MethodArgumentTypeMismatchException ex,
@@ -74,21 +61,52 @@ public class GlobalExceptionHandler {
                 List.of(new ApiErrorResponse.FieldError(field, message)));
     }
 
-    /**
-     * Generic 400 for illegal arguments that are the caller's fault (e.g.
-     * unsupported sort field). Domain-level conflicts (duplicate employee
-     * number) are raised as a separate exception and mapped to 409.
-     *
-     * <p>If you introduce a dedicated exception type for client-input
-     * violations in the future, replace this handler with one for that
-     * specific type and remove this one.
-     */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiErrorResponse> handleIllegalArgument(
             IllegalArgumentException ex,
             HttpServletRequest request
     ) {
         return buildBadRequest(request, ex.getMessage(), List.of());
+    }
+
+    @ExceptionHandler(InvalidCurrencyException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidCurrency(
+            InvalidCurrencyException ex,
+            HttpServletRequest request
+    ) {
+        return buildBadRequest(request, ex.getMessage(), List.of());
+    }
+
+    @ExceptionHandler(DuplicateSalaryException.class)
+    public ResponseEntity<ApiErrorResponse> handleDuplicateSalary(
+            DuplicateSalaryException ex,
+            HttpServletRequest request
+    ) {
+        ApiErrorResponse body = new ApiErrorResponse(
+                OffsetDateTime.now(),
+                HttpStatus.CONFLICT.value(),
+                "Conflict",
+                ex.getMessage(),
+                request.getRequestURI(),
+                List.of()
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    @ExceptionHandler(DuplicateEmployeeException.class)
+    public ResponseEntity<ApiErrorResponse> handleDuplicateEmployee(
+            DuplicateEmployeeException ex,
+            HttpServletRequest request
+    ) {
+        ApiErrorResponse body = new ApiErrorResponse(
+                OffsetDateTime.now(),
+                HttpStatus.CONFLICT.value(),
+                "Conflict",
+                ex.getMessage(),
+                request.getRequestURI(),
+                List.of()
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 
     @ExceptionHandler(EmployeeNotFoundException.class)
@@ -105,22 +123,6 @@ public class GlobalExceptionHandler {
                 List.of()
         );
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
-    }
-
-    @ExceptionHandler(DuplicateEmployeeException.class)
-    public ResponseEntity<ApiErrorResponse> handleDuplicate(
-            DuplicateEmployeeException ex,
-            HttpServletRequest request
-    ) {
-        ApiErrorResponse body = new ApiErrorResponse(
-                OffsetDateTime.now(),
-                HttpStatus.CONFLICT.value(),
-                "Conflict",
-                ex.getMessage(),
-                request.getRequestURI(),
-                List.of()
-        );
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 
     private ResponseEntity<ApiErrorResponse> buildBadRequest(

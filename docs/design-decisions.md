@@ -1,8 +1,8 @@
 # ACME Salary Management System: Design Decisions
 
-This document records the key technical decisions for the ACME Salary Management System, including the reasoning behind each decision, its trade-offs, and its implementation status.
+This document records the key technical decisions for the ACME Salary Management System, including the reasoning, trade-offs, implementation status, and verification evidence.
 
-A decision may be **Accepted** while its implementation remains **Pending**.
+A decision may be **Accepted** while its implementation is still **Pending**.
 
 ## Status Legend
 
@@ -10,8 +10,8 @@ A decision may be **Accepted** while its implementation remains **Pending**.
 |---|---|
 | **Accepted** | The technical decision has been agreed upon. |
 | **Implemented** | The corresponding code or configuration exists. |
-| **Verified** | The implementation has been checked through passing tests or observed behaviour. |
-| **Pending** | The implementation has not yet been completed. |
+| **Verified** | Relevant automated tests or checks have passed. |
+| **Pending** | Implementation has not started or is not yet complete. |
 
 ---
 
@@ -25,17 +25,15 @@ Build one Spring Boot application divided into employee, salary, reporting, secu
 
 **Reason**
 
-The project scope does not justify the operational complexity of microservices. A single deployable application is simpler to develop, test, run, and demonstrate.
+The stated scope does not justify the operational complexity of microservices. A single deployable application is simpler to test, run, and demonstrate.
 
-**Trade-offs**
+**Trade-off**
 
-Module boundaries must be maintained intentionally to prevent the codebase from becoming tightly coupled and difficult to maintain.
+Module boundaries must be maintained intentionally to prevent tightly coupled code and an increasingly tangled monolith.
 
-**Implementation status**
+**Implementation**
 
-The modular structure is implemented for the `common` and `employee` packages and supporting components. The salary, reporting, and production security implementations remain pending.
-
----
+The `common`, `employee`, and `salary` packages exist. The dedicated `report` and `security` packages remain planned.
 
 ## Decision 2: Java 21 and Spring Boot 4.1.1
 
@@ -47,25 +45,19 @@ Use Java 21 LTS and Spring Boot 4.1.1 for the backend.
 
 **Reason**
 
-Java provides a stable LTS toolchain, while Spring Boot supports REST APIs, dependency injection, validation, persistence, security, and automated testing.
+Java 21 provides an LTS toolchain, while Spring Boot offers an established ecosystem for REST APIs, validation, dependency injection, persistence, and testing.
 
-**Trade-offs**
+Spring Boot 4 provides a modern framework baseline and updated security and testing support.
 
-Spring Boot 4 introduces changes to its modularised test dependencies and package locations. For example, `@DataJpaTest` is available under:
+**Trade-off**
 
-```java
-org.springframework.boot.data.jpa.test.autoconfigure
-```
+Spring Boot 4 modularised some test starters and moved certain annotations into new packages. For example, `@DataJpaTest` is available through `org.springframework.boot.data.jpa.test.autoconfigure`.
 
-These changes require additional configuration and migration effort but are manageable.
+This introduced migration work, but the current framework baseline was retained.
 
-**Implementation status**
+**Implementation**
 
-Recorded as implemented. The application has previously been reported to build and run with Spring Boot 4.1.1, with the relevant imports corrected for the updated package structure.
-
-**Verification:** Confirm the version in `backend/pom.xml` and run the current build before submission.
-
----
+Recorded as implemented. The application has been configured for Spring Boot 4.1.1, and imports were adjusted for the updated package structure.
 
 ## Decision 3: PostgreSQL
 
@@ -77,23 +69,19 @@ Use PostgreSQL 17 as the relational database.
 
 **Reason**
 
-PostgreSQL provides relational integrity, constraints, transactions, and SQL capabilities suitable for employee management and salary reporting. Managed hosting options, such as Neon, can also support deployment.
+PostgreSQL provides relational integrity, constraints, transactions, and analytical SQL capabilities for reporting. Managed hosting options, such as Neon, also support using PostgreSQL in development and deployment.
 
-**Trade-offs**
+**Trade-off**
 
-Unlike an embedded database, PostgreSQL requires a running database server. This additional setup is accepted because testing against the intended database engine provides more realistic behaviour.
+A database server must be running and accessible, unlike an embedded file-based database. This was accepted to provide realistic database behaviour.
 
-**Implementation status**
+**Implementation**
 
-Recorded as implemented. The database connection was previously verified through HikariCP, and the initial Flyway migration was applied to `acme_salary_management` on PostgreSQL 17.6.
+The database connection was verified through HikariCP, and Flyway migrations were applied against `acme_salary_management` using PostgreSQL 17.6, according to the recorded development results.
 
 **Least-privilege database access**
 
-The application connects using the dedicated `acme_app` database role rather than the `postgres` superuser. Grants are intended to be restricted to the application's database and schema requirements.
-
-**Verification:** Confirm the current database version, grants, connection configuration, and migration status before submission.
-
----
+The application connects using a dedicated `acme_app` role rather than the PostgreSQL superuser. Permissions are scoped to the application's database and schema requirements.
 
 ## Decision 4: Flyway for Database Migrations
 
@@ -101,31 +89,31 @@ The application connects using the dedicated `acme_app` database role rather tha
 
 **Decision**
 
-Manage schema changes through versioned SQL migrations using Flyway.
+Use versioned SQL migrations managed by Flyway.
 
 **Reason**
 
-Versioned migrations make database changes repeatable, reviewable, and traceable across development, testing, and deployment environments.
+Schema changes become repeatable, reviewable, and traceable across development and deployment environments.
 
-**Rules**
+**Rule**
 
-- Never modify an already-applied migration in a shared or persistent environment.
-- Introduce schema changes through a new migration version.
-- Keep entity mappings consistent with the database schema.
+Never modify an applied migration. Introduce schema changes through a new migration version.
 
-**Trade-offs**
+**Trade-off**
 
-Flyway requires more explicit migration management than automatically updating the schema through Hibernate. This additional discipline reduces the risk of unexpected schema changes.
+Flyway requires more explicit migration management than `spring.jpa.hibernate.ddl-auto=update`, but it provides a safer and more controlled schema-evolution process.
 
-**Implementation status**
+**Implementation**
 
-Implemented. The initial migration is:
+The following migrations are recorded as implemented:
 
-`backend/src/main/resources/db/migration/V1__create_employees.sql`
+- `V1__create_employees.sql`
+- `V2__create_salary_records.sql`
+- `V3__alter_salary_records_currency_code.sql`
 
-Hibernate uses `ddl-auto=validate` to validate entity mappings against the managed schema rather than create or modify tables automatically.
+V3 corrected the currency column type introduced in V2 after Hibernate schema validation identified a mismatch. The correction was made through a new migration rather than by modifying V2.
 
----
+Hibernate uses `ddl-auto=validate` to detect inconsistencies between entity mappings and the database schema.
 
 ## Decision 5: Controller, Service, and Repository Layers
 
@@ -133,29 +121,27 @@ Hibernate uses `ddl-auto=validate` to validate entity mappings against the manag
 
 **Decision**
 
-Separate backend responsibilities into three primary layers:
+Separate responsibilities across three application layers:
 
-- **Controller:** HTTP requests, request parameters, and response status codes.
-- **Service:** Business rules, operation coordination, and entity-to-DTO mapping.
-- **Repository:** Database access and persistence.
+- **Controller:** Handles HTTP requests and responses.
+- **Service:** Implements business rules.
+- **Repository:** Handles persistence and database queries.
 
 **Reason**
 
-Separating responsibilities makes the code easier to understand, test, and maintain.
+Clear separation makes the code easier to test, maintain, and reason about.
 
-**Trade-offs**
+**Trade-off**
 
-The layered approach introduces additional classes and indirection. This is accepted because employee management and salary history contain business rules that should not be mixed with HTTP or database concerns.
+The design introduces more classes and indirection. This is justified because salary history, currency validation, and employee management involve business rules that should not be embedded in HTTP controllers.
 
-**Implementation status**
+**Implementation**
 
-Implemented for the employee module.
+The employee and salary modules follow this pattern.
 
-- `EmployeeController` handles HTTP concerns, parameter validation, and sort-field whitelisting.
-- `EmployeeService` handles business logic, duplicate detection, search-criteria processing, and entity-to-DTO mapping.
-- `EmployeeRepository` extends `JpaRepository` and `JpaSpecificationExecutor`.
-
----
+- `EmployeeController` and `SalaryRecordController` handle HTTP concerns, parameter validation, and sort-field whitelisting.
+- `EmployeeService` and `SalaryRecordService` enforce business rules.
+- `EmployeeRepository` and `SalaryRecordRepository` handle persistence.
 
 ## Decision 6: Validate at Multiple Levels
 
@@ -163,34 +149,33 @@ Implemented for the employee module.
 
 **Decision**
 
-Use Jakarta Bean Validation for incoming requests and database constraints to protect data integrity.
+Use Jakarta Bean Validation for request validation and database constraints for data integrity.
 
 **Reason**
 
-Request validation produces useful client-facing errors. Database constraints protect integrity even when multiple requests are processed concurrently or data is written through another application path.
+Request validation provides useful client-facing errors. Database constraints protect data integrity even when concurrent requests attempt conflicting operations.
 
-**Trade-offs**
+**Trade-off**
 
-Some rules exist at both the application and database levels. These rules must remain consistent.
+Rules enforced at both application and database levels must remain consistent.
 
-**Implementation status**
+**Implementation**
 
-Implemented for employee management.
-
-`EmployeeRequest` uses validation annotations such as:
+Request DTOs use annotations including:
 
 - `@NotBlank`
 - `@Email`
 - `@Pattern`
 - `@NotNull`
+- `@DecimalMin`
+- `@Digits`
+- `@Size`
 
-The employee listing endpoint uses method-level validation, including `@Min`, `@Max`, `@Size`, and `@Pattern`, with `@Validated` enabled on the controller.
+Controllers use method-level constraints such as `@Min`, `@Max`, `@Size`, and `@Pattern`, activated by `@Validated`.
 
-Database constraints, including `UNIQUE` and `CHECK` constraints where appropriate, provide additional protection.
+Database `CHECK` and `UNIQUE` constraints provide additional protection.
 
-`GlobalExceptionHandler` maps body-validation failures represented by `MethodArgumentNotValidException` and method-level parameter-validation failures represented by `ConstraintViolationException` to HTTP 400 responses.
-
----
+`GlobalExceptionHandler` maps request-validation and method-validation failures to HTTP 400. Salary-specific rules, including positive amounts, effective-date limits, currency validity, and duplicate effective dates, are enforced by the service and mapped to appropriate HTTP status codes.
 
 ## Decision 7: Consistent API Error Responses
 
@@ -198,33 +183,27 @@ Database constraints, including `UNIQUE` and `CHECK` constraints where appropria
 
 **Decision**
 
-Use a shared API error response structure through `ApiErrorResponse` and `GlobalExceptionHandler`.
+Use a shared API error response structure through a global exception handler.
 
 **Reason**
 
-Consistent error responses make it easier for clients to handle validation failures, missing resources, duplicate records, and other expected errors.
+Clients need predictable error formats for validation failures, missing resources, conflicts, and other expected errors.
 
-**Trade-offs**
+**Trade-off**
 
-A shared response structure introduces a little more implementation effort for simple cases. The consistency is worth the cost.
+A shared structure may be more formal than necessary for trivial cases, but consistency simplifies client-side error handling.
 
-**Implementation status**
+**Implementation**
 
-Implemented.
+`GlobalExceptionHandler` returns `ApiErrorResponse` for handled validation, type-mismatch, illegal-argument, invalid-currency, duplicate, and not-found cases.
 
-`GlobalExceptionHandler` handles supported validation, type-mismatch, illegal-argument, duplicate-record, and not-found exceptions.
+The intended HTTP status mapping is:
 
-The intended status codes are:
-
-| HTTP status | Meaning | Example |
+| HTTP status | Meaning | Examples |
 |---|---|---|
-| `400 Bad Request` | Invalid or unsupported request input. | Invalid status, unsupported sort field, or oversized page size. |
-| `404 Not Found` | The requested resource does not exist. | Employee ID not found. |
-| `409 Conflict` | The request conflicts with existing application state. | Duplicate employee number or email. |
-
-These mappings are covered by the employee controller tests.
-
----
+| `400 Bad Request` | Invalid request or parameter | Invalid enum, unsupported sort field, oversized page size, invalid currency |
+| `404 Not Found` | Requested resource does not exist | Employee ID not found |
+| `409 Conflict` | Request conflicts with existing state | Duplicate employee number or email; duplicate salary effective date |
 
 ## Decision 8: Server-Side Pagination, Sorting, Search, and Filtering
 
@@ -232,34 +211,21 @@ These mappings are covered by the employee controller tests.
 
 **Decision**
 
-Perform employee search, filtering, sorting, and pagination through Spring Data JPA `Specification` and `Pageable`.
+Perform pagination, sorting, search, and filtering at the database query level using Spring Data JPA `Specification` and `Pageable`.
 
 **Reason**
 
-The application is intended to support approximately 10,000 employees. Loading every employee into memory or returning all records to the browser would be inefficient.
+The system must support approximately 10,000 employees without loading every record into application memory or sending the entire directory to the browser.
 
-**Trade-offs**
+**Trade-off**
 
-Database-level filtering requires more complex query construction and testing. This is accepted because it improves scalability and reduces unnecessary data transfer.
+Dynamic query construction introduces complexity, but it supports scalability and a more usable employee directory.
 
-**Implementation status**
+**Implementation**
 
-Implemented.
+`EmployeeSpecifications` composes specifications for the supported search and filters.
 
-`EmployeeSpecifications` builds reusable predicates for search and filtering.
-
-- Search matches first name, last name, employee number, or email, using OR between searchable fields.
-- Country and employment-status filters use exact matching.
-- Department matching is case-insensitive.
-- Search criteria and separate filters are combined using AND.
-- `EmployeeController.list(...)` validates page numbers, page sizes, and sort parameters.
-- Page numbers must be non-negative.
-- Page sizes must be between 1 and 100.
-- Sort fields must appear on an explicit whitelist.
-
-The service passes the resulting specification and pageable to `JpaSpecificationExecutor.findAll(...)`.
-
----
+Both employee and salary controllers validate pagination and sorting parameters against the relevant whitelists and limits before passing a `Pageable` to the service.
 
 ## Decision 9: Separate Employee Profiles from Salary History
 
@@ -267,21 +233,25 @@ The service passes the resulting specification and pageable to `JpaSpecification
 
 **Decision**
 
-Store employee profiles separately from salary records. Salary records should contain an effective date and currency code and should be append-only at the application level.
+Store salary records separately from employee profiles and treat salary history as append-only. Each salary record has an effective date and currency.
+
+Previous salary records must not be overwritten.
 
 **Reason**
 
-Salary history must be auditable. Overwriting an earlier salary would lose information about previous compensation.
+Salary history needs to remain auditable. Updating previous records would destroy the record of earlier salary arrangements.
 
-**Trade-offs**
+**Trade-off**
 
-The salary table will grow over time. Appropriate pagination, indexing, and query design will help manage that growth.
+The salary table grows over time. Pagination and appropriate indexes support querying the history.
 
-**Implementation status:** Pending.
+**Implementation**
 
-The `salary_records` table is planned for the V2 migration. Previous salary records should remain available when a new salary takes effect.
+The append-only design is implemented at three levels:
 
----
+1. **Database:** `UNIQUE (employee_id, effective_date)` prevents duplicate effective dates for an employee. `ON DELETE RESTRICT` prevents deleting an employee while salary records reference that employee.
+2. **Entity:** `SalaryRecord` does not expose setters for `amount`, `currencyCode`, `effectiveDate`, or `employee`.
+3. **Service:** `SalaryRecordService` has no update or delete methods. Salary changes are recorded as new inserts.
 
 ## Decision 10: Handle Currencies Explicitly
 
@@ -289,21 +259,29 @@ The `salary_records` table is planned for the V2 migration. Previous salary reco
 
 **Decision**
 
-Store an ISO 4217 currency code with every salary record. Group reports by currency and do not calculate combined cross-currency totals without a documented conversion method.
+Store an ISO 4217 currency code with each salary record. Reports must group amounts by currency and must not combine different currencies without a documented conversion methodology.
 
 **Reason**
 
-Adding amounts in different currencies produces misleading financial figures.
+Adding amounts expressed in different currencies produces misleading results.
 
-**Trade-offs**
+**Trade-off**
 
-Cross-currency totals are deferred. Users will initially receive meaningful totals for each currency rather than an incorrect combined total.
+Cross-currency totals are deferred. The system will provide meaningful per-currency values rather than an incorrect combined total.
 
-**Implementation status:** Pending.
+**Implementation**
 
-The currency-aware salary and reporting features will be implemented with the salary and reporting modules.
+The `currency_code` column uses `VARCHAR(3)` and a database constraint requiring three uppercase letters:
 
----
+```sql
+CHECK (currency_code ~ '^[A-Z]{3}$')
+```
+
+The service normalises currency codes to uppercase and validates them using `java.util.Currency.getInstance(...)`. Unknown currency codes cause `InvalidCurrencyException`, which maps to HTTP 400.
+
+The current salary module permits salary records for the same employee to use different currencies. It does not combine those amounts.
+
+The planned reporting module must preserve per-currency grouping.
 
 ## Decision 11: Keep Credentials Outside Source Control
 
@@ -311,45 +289,32 @@ The currency-aware salary and reporting features will be implemented with the sa
 
 **Decision**
 
-Supply secrets through environment variables. For local development, load them from a git-ignored `.env` file. Commit `.env.example` as a template containing placeholder values only.
+Supply secrets through environment variables loaded from a local `.env` file. Keep `.env` Git-ignored and commit `.env.example` with placeholder values.
 
 **Reason**
 
-Keeping credentials out of source control reduces the risk of accidental disclosure.
+This reduces the risk of accidentally committing credentials and follows common configuration-management practices.
 
-**Trade-offs**
+**Trade-off**
 
-Each development environment requires its own local configuration.
+Each developer must configure their own local environment.
 
-**Implementation status**
+**Implementation**
 
-Recorded as implemented.
+- The local environment file is `backend/.env`.
+- `backend/.env` is Git-ignored, with the ignore rule checked using `git check-ignore`.
+- `.env.example` is committed at the repository root and contains placeholder values.
+- The loading mechanism is documented in Decision 16.
 
-- Local configuration file: `backend/.env`
-- Template: `.env.example` at the repository root.
-- `.env` is intended to be excluded from Git.
-
-The ignore rule can be checked from the repository root with:
-
-```powershell
-git check-ignore .\backend\.env
-```
-
-The command should identify the file as ignored.
-
-See Decision 16 for how local environment variables are loaded.
-
----
-
-## Decision 12: Automated Tests Against PostgreSQL
+## Decision 12: Automated Tests Against Real PostgreSQL
 
 **Status:** Accepted
 
 **Decision**
 
-Use JUnit 5 and Spring Boot Test, with tests covering business rules, API behaviour, and database persistence.
+Use JUnit 5 and Spring Boot Test to test business rules and API behaviour. Run repository and specification tests against PostgreSQL rather than an embedded H2 database.
 
-Repository and specification tests run against PostgreSQL rather than an embedded H2 database. The `@DataJpaTest` configuration uses:
+Repository tests use:
 
 ```java
 @AutoConfigureTestDatabase(replace = Replace.NONE)
@@ -357,15 +322,17 @@ Repository and specification tests run against PostgreSQL rather than an embedde
 
 **Reason**
 
-The schema uses PostgreSQL-specific behaviour, including `TIMESTAMPTZ`, `BIGSERIAL`, and database constraints. Testing against PostgreSQL helps identify migration and database-dialect issues that an embedded database could hide.
+Flyway migrations, `TIMESTAMPTZ`, `BIGSERIAL`, and database constraints must be tested against the target database engine. H2 may behave differently and could hide database-specific issues.
 
-**Trade-offs**
+**Trade-off**
 
-Tests require a running PostgreSQL instance, unless a managed test database or Testcontainers is used. This introduces setup requirements but improves confidence in database correctness.
+Tests require a running PostgreSQL database. CI will need a managed database or an alternative such as Testcontainers. PostgreSQL-backed tests may take longer than embedded-database tests.
 
-**Implementation status**
+This trade-off was accepted because data correctness is particularly important for salaries and employment history.
 
-The following test counts were recorded previously:
+**Implementation**
+
+The recorded test result is 61 passing tests across eight test classes:
 
 | Test class | Recorded tests |
 |---|---:|
@@ -373,20 +340,23 @@ The following test counts were recorded previously:
 | `EmployeeRepositoryTest` | 5 |
 | `EmployeeServiceTest` | 8 |
 | `EmployeeSpecificationsTest` | 9 |
+| `SalaryRecordControllerTest` | 10 |
+| `SalaryRecordRepositoryTest` | 6 |
+| `SalaryRecordServiceTest` | 12 |
 | `SalaryManagementApplicationTests` | 1 |
-| **Total** | **33** |
+| **Total** | **61** |
 
-These results must be confirmed by the latest test run before submission.
+The salary milestone added 28 tests across the salary controller, repository, and service test classes.
+
+> **Verification note:** Confirm this count by running the complete test suite before submission.
 
 **Data isolation**
 
-`EmployeeRepositoryTest` and `EmployeeSpecificationsTest` use `@Transactional` to roll back test changes. Unique identifiers are generated for test methods to reduce collisions with data created manually or by earlier test runs.
+`EmployeeRepositoryTest`, `EmployeeSpecificationsTest`, and `SalaryRecordRepositoryTest` use `@Transactional` for rollback after each test and generate unique identifiers to reduce collisions with data created through Postman or previous test runs.
 
 **Follow-up**
 
-Consider adding Testcontainers so CI can start a disposable PostgreSQL instance without relying on a manually provisioned database.
-
----
+Introduce Testcontainers so CI can provision a reproducible PostgreSQL environment without relying on a manually configured database.
 
 ## Decision 13: Protect Sensitive Data
 
@@ -394,25 +364,21 @@ Consider adding Testcontainers so CI can start a disposable PostgreSQL instance 
 
 **Decision**
 
-Use Spring Security with JWT authentication to protect employee and salary endpoints. Use synthetic employee data during development and demonstrations.
+Use Spring Security with JWT authentication and authorisation to protect employee and salary endpoints. Use synthetic data for development and demonstrations.
 
 **Reason**
 
-Salary information is confidential. Unauthenticated access to sensitive operations is unacceptable for a production application.
+Salary information is confidential. Unauthenticated write access is unacceptable for production.
 
-**Trade-offs**
+**Trade-off**
 
-Authentication introduces login, token handling, and additional testing requirements. These are accepted because they reflect realistic application security requirements.
+Authentication introduces login and token-management complexity, but these are necessary for a realistic application.
 
-**Implementation status:** In Progress.
+**Implementation**
 
-Spring Security is included, but production-grade JWT authentication and authorisation remain pending.
+Pending. The current development configuration uses `DevSecurityConfig`, guarded by `@Profile("dev")`, to disable CSRF and permit requests for local Postman testing.
 
-A development-only `DevSecurityConfig`, guarded by `@Profile("dev")`, disables CSRF and permits requests when the development profile is active. This is intended for local Postman testing only.
-
-The effective security behaviour outside the `dev` profile depends on the remaining configuration and Spring Security defaults. The production security milestone must replace this development setup with verified authentication and access-control rules.
-
----
+Production-ready JWT authentication, authorisation, and security verification remain future work.
 
 ## Decision 14: Containerise with Docker
 
@@ -420,29 +386,19 @@ The effective security behaviour outside the `dev` profile depends on the remain
 
 **Decision**
 
-Provide Dockerfiles for the backend and frontend, plus a `docker-compose.yml` configuration for PostgreSQL, the backend, and the frontend.
+Provide Dockerfiles for the backend and frontend, plus a `docker-compose.yml` that runs PostgreSQL, the backend, and the frontend.
 
 **Reason**
 
-Containerisation improves reproducibility, simplifies setup for reviewers, and reduces environment-specific differences between development and deployment.
+Containerisation supports a reproducible setup and a clearer deployment process. It reduces environment differences between development and assessment environments.
 
-**Trade-offs**
+**Trade-off**
 
-Docker introduces additional build configuration and container images that must be maintained.
+Docker adds configuration and image-build maintenance.
 
-**Implementation status:** Pending.
+**Implementation**
 
-The planned files are:
-
-| File | Purpose |
-|---|---|
-| `backend/Dockerfile` | Build and run the Spring Boot backend. |
-| `frontend/Dockerfile` | Build the Angular frontend and serve it through Nginx. |
-| `docker-compose.yml` | Coordinate the database, backend, and frontend services. |
-
-Containerisation will follow the core application features.
-
----
+Pending. Containerisation is planned after the core application features.
 
 ## Decision 15: Use LIKE-Based Search for Version 1
 
@@ -450,52 +406,41 @@ Containerisation will follow the core application features.
 
 **Decision**
 
-Use case-insensitive partial matching with `LOWER(column) LIKE '%term%'` across:
+Implement free-text employee search using:
 
-- `first_name`
-- `last_name`
-- `employee_number`
-- `email`
+```sql
+LOWER(column) LIKE '%term%'
+```
 
-The searchable fields are combined with OR, while additional filters are combined with the search criteria using AND.
+The search covers `first_name`, `last_name`, `employee_number`, and `email`. Search matches across these fields are combined with OR, while other filters are combined with the search using AND.
 
-PostgreSQL full-text search using `tsvector` and a GIN index is deferred.
+PostgreSQL full-text search using `tsvector`, GIN indexes, and dictionary configuration is deferred.
 
 **Reason**
 
-The initial target is approximately 10,000 employees. A straightforward LIKE-based approach is easier to implement and understand than a full-text search configuration with additional indexing and query rules.
+For the target dataset of approximately 10,000 employees, LIKE-based search provides a simpler initial implementation. Full-text search would introduce additional schema and query complexity, including configuration and special handling for employee numbers and email addresses.
 
-Full-text search also requires consideration of prefix matching for employee numbers and email addresses, which may not align with its default tokenisation behaviour.
+**Trade-off**
 
-**Trade-offs**
+LIKE-based substring searches may not scale efficiently to millions of records and do not provide stemming or relevance ranking. If measurements show a performance problem, a `pg_trgm` GIN index or a move to `tsvector` can be considered.
 
-LIKE-based search may become less efficient at larger data volumes and does not provide stemming or relevance ranking.
-
-If performance measurements justify it, a PostgreSQL trigram index using `pg_trgm` or a move to `tsvector` can be considered.
-
-**Implementation status**
+**Implementation**
 
 Implemented in `EmployeeSpecifications.matchesSearch(String)`.
 
-Previously recorded tests include:
+Recorded test coverage includes:
 
 - `matchesSearchFindsByFirstNameCaseInsensitive`
 - `matchesSearchFindsByEmailSubstring`
 - `fromCriteriaFindsBySearchAndFilters`
 
-Confirm that these tests still pass before marking the decision as verified.
-
----
-
-## Decision 16: Load Local Environment Variables Using `springboot4-dotenv`
+## Decision 16: Load `.env` Using `springboot4-dotenv`
 
 **Status:** Accepted
 
 **Decision**
 
-Use the `springboot4-dotenv` integration from `me.paulschwarz` to load local environment variables from `backend/.env`.
-
-The intended configuration includes:
+Load the following local environment variables from `backend/.env` through the `springboot4-dotenv` library from `me.paulschwarz`, using its `spring-dotenv-bom` dependency management:
 
 - `DB_URL`
 - `DB_USERNAME`
@@ -504,66 +449,57 @@ The intended configuration includes:
 - `JWT_EXPIRATION_MS`
 - `SPRING_PROFILES_ACTIVE`
 
-The dependency is managed through the `spring-dotenv-bom` BOM, as configured in the project.
-
-The `.env` file is git-ignored, while `.env.example` at the repository root documents the required variables using placeholders.
+The `.env` file remains Git-ignored. `.env.example` at the repository root is the committed template.
 
 **Reason**
 
-Spring Boot does not natively load `.env` files. Without an integration, developers must export variables separately in each shell session or configure them manually in their IDE.
+Spring Boot does not natively load `.env` files. Without a dotenv integration, developers would need to export variables in each shell session or maintain separate IDE run configurations.
 
-A dotenv integration is intended to simplify local configuration across IntelliJ, Maven commands, and packaged application runs.
+A dotenv library provides a consistent local configuration mechanism for IntelliJ, `mvnw spring-boot:run`, and a packaged JAR, subject to the library's working-directory and loading behaviour.
 
-**Trade-offs**
+**Trade-off**
 
-The integration introduces a third-party dependency that must remain compatible with the chosen Spring Boot version.
+A third-party dependency is introduced. The originally suggested artifact, `me.paulschwarz:spring-dotenv`, targets Spring Boot 3 and did not work with the project's Spring Boot 4 setup. The Spring Boot 4-compatible module and its BOM were selected instead.
 
-The project selected `springboot4-dotenv` rather than the originally considered `me.paulschwarz:spring-dotenv`, because the latter was reported not to load the required variables under Spring Boot 4.
+A local `.env` file must never be packaged or deployed as a substitute for production configuration. Production secrets and profile selection must come from the hosting environment.
 
-The `.env` file must remain a local development configuration file. Production secrets should be provided by the hosting environment or an appropriate secrets manager.
+**Additional pitfall**
 
-**Implementation status**
+Values containing `#`, `$`, or whitespace may require double quotes according to the dotenv parser's syntax. Incorrect quoting can truncate values and cause confusing configuration errors.
 
-Recorded as implemented and previously verified.
+The `.env.example` template documents this behaviour.
 
-Earlier checks reported that the application started with the `dev` profile active and established a HikariCP database connection without requiring shell-level environment-variable exports or IDE-specific overrides.
+**Implementation**
 
-Re-run these checks after dependency or configuration changes.
+Recorded as implemented and verified. The backend was reported to start with the `dev` profile and establish a HikariCP database connection without manual shell-level `$env:` exports or IntelliJ-specific environment overrides.
 
----
-
-## Decision 17: Disable Security Filters in Controller-Slice Tests
+## Decision 17: Disable Security Filters in Controller-Focused Tests
 
 **Status:** Accepted
 
 **Decision**
 
-Configure `EmployeeControllerTest` with:
+Both `EmployeeControllerTest` and `SalaryRecordControllerTest` use `@WebMvcTest` and:
 
 ```java
-@WebMvcTest(controllers = EmployeeController.class)
 @AutoConfigureMockMvc(addFilters = false)
 ```
 
-Security filters are not exercised by this controller-focused test class.
+Security filters are not exercised in these controller-focused test classes.
 
 **Reason**
 
-The controller tests focus on HTTP behaviour, request validation, parameter binding, and error responses.
+After `@Validated` was added to the controllers for method-level parameter validation, Spring Security began rejecting some MockMvc requests with HTTP 401 before the controller logic could execute.
 
-The project previously encountered HTTP 401 responses before requests reached the controller after method-level validation was enabled. Disabling filters isolates controller behaviour from security configuration.
+These tests are intended to verify controller behaviour, including parameter binding, status codes, and error responses, rather than authentication.
 
-**Trade-offs**
+**Trade-off**
 
-These tests do not verify authentication, authorisation, or CSRF behaviour.
+These tests do not verify endpoint protection or CSRF behaviour. Those responsibilities must be covered by dedicated security tests.
 
-Those concerns must be covered by separate security tests in the security milestone.
+**Implementation**
 
-**Implementation status**
-
-Implemented. The controller test class was previously reported to pass with this configuration.
-
----
+Implemented according to the recorded test configuration. Both controller test classes were reported to pass with security filters disabled.
 
 ## Decision 18: Use Semantically Correct HTTP Status Codes
 
@@ -571,54 +507,121 @@ Implemented. The controller test class was previously reported to pass with this
 
 **Decision**
 
-Return HTTP status codes that reflect the type of failure instead of using one generic error status.
+HTTP status codes must reflect the nature of the failure rather than returning one generic error status.
 
-| HTTP status | Use case |
-|---|---|
-| **400 Bad Request** | Invalid request input, body validation failures, method-level validation failures, unknown sort fields, invalid enum values, numeric parameter type mismatches, and oversized page sizes. |
-| **404 Not Found** | The requested employee does not exist. |
-| **409 Conflict** | A valid request conflicts with existing application state, such as a duplicate employee number or email. |
+| Status | Use case | Examples |
+|---|---|---|
+| `400 Bad Request` | Caller-caused input problems | Invalid body, invalid enum, unsupported sort field, non-numeric parameter, oversized page size, invalid currency |
+| `404 Not Found` | Requested resource does not exist | Employee lookup by unknown ID |
+| `409 Conflict` | Request conflicts with existing state | Duplicate employee number or email; duplicate salary effective date |
 
 **Reason**
 
-Clients need to distinguish invalid input from a missing resource or a conflict with existing data. These categories require different handling.
+Clients need to distinguish invalid input from a conflict with existing data and from a missing resource. A consistent status-code policy improves error handling.
 
-**Trade-offs**
+**Trade-off**
 
-The implementation requires explicit exception types and mappings. This additional structure makes the error-handling behaviour more predictable.
+Different failure categories require explicit exception types and mappings. The additional classes make the intended behaviour clearer.
 
-**Implementation status**
+**Implementation**
 
-Implemented.
+The recorded implementation includes:
 
-- `EmployeeService.create` throws `DuplicateEmployeeException` for duplicate employee numbers or email addresses.
-- `EmployeeService.getById` throws `EmployeeNotFoundException` when an employee cannot be found.
-- `EmployeeController.parseSort` throws `IllegalArgumentException` for unsupported sort fields or directions.
-- `GlobalExceptionHandler` maps supported input errors to HTTP 400, duplicate records to HTTP 409, and missing employees to HTTP 404.
+- `EmployeeService.create` throwing `DuplicateEmployeeException` for duplicate employee data.
+- `SalaryRecordService.record` throwing `DuplicateSalaryException` and `InvalidCurrencyException` for the corresponding salary failures.
+- Both services throwing `EmployeeNotFoundException` when the employee does not exist.
+- `EmployeeController.parseSort` and `SalaryRecordController.parseSort` throwing `IllegalArgumentException` for unsupported sort fields, mapped to HTTP 400.
 
-Previously recorded controller tests include:
+The mappings are covered by controller tests and Postman smoke tests according to the recorded results.
 
-- `listReturns400WhenSortFieldIsNotWhitelisted`
-- `listReturns400WhenStatusIsInvalid`
-- `listReturns400WhenSizeExceedsCap`
-- `listReturns400WhenCountryFormatIsInvalid`
-- `getByIdReturns404WhenMissing`
-- `createReturns400WhenValidationFails`
+## Decision 19: Resolve Current Salary by Effective Date
 
-Confirm the current test results before submission.
+**Status:** Accepted
+
+**Decision**
+
+The current salary is the record with the highest `effective_date` on or before today.
+
+Records with a future effective date remain in the salary history but are not treated as current.
+
+**Reason**
+
+Salary increases may be scheduled to take effect in the future. The current-salary endpoint should reflect the salary in effect today, rather than simply returning the most recently inserted record.
+
+A future frontend could provide a separate view of upcoming salary changes without changing this backend rule.
+
+**Trade-off**
+
+When a future raise is recorded, the current-salary endpoint continues to return the existing salary until the new effective date arrives. The salary-history view should make scheduled changes visible.
+
+**Implementation**
+
+`SalaryRecordService.current(...)` uses the repository query:
+
+```java
+findTopByEmployeeIdAndEffectiveDateLessThanEqualOrderByEffectiveDateDesc(
+    employeeId,
+    LocalDate.now()
+)
+```
+
+The query is supported by `idx_salary_records_employee_effective_desc`.
+
+Recorded verification includes:
+
+- `SalaryRecordServiceTest.currentReturnsLatestEffectiveRecord`
+- `SalaryRecordRepositoryTest.currentResolvesLatestEffectiveDateOnOrBeforeToday`
+- `SalaryRecordRepositoryTest.currentReturnsEmptyWhenOnlyFutureDatedRecords`
+- A Postman scenario creating past, current, and future salary records and checking that the current endpoint returns the record effective today.
+
+## Decision 20: Use VARCHAR(3), Not CHAR(3), for Currency Codes
+
+**Status:** Accepted
+
+**Decision**
+
+The `salary_records.currency_code` column uses `VARCHAR(3)` rather than `CHAR(3)`.
+
+**Reason**
+
+The initial V2 migration declared `currency_code` as `CHAR(3)`. PostgreSQL stores this as the fixed-width `bpchar` type, which pads values with trailing spaces.
+
+Hibernate's `ddl-auto=validate` mode detected a mismatch between the database column and the entity's `String` mapping with `@Column(length = 3)`, which expects `VARCHAR(3)`.
+
+Instead of disabling schema validation or adapting the entity to `bpchar`, the schema was corrected to use `VARCHAR(3)`, a conventional choice for variable-length text codes.
+
+The existing database constraint remains in place:
+
+```sql
+CHECK (currency_code ~ '^[A-Z]{3}$')
+```
+
+**Trade-off**
+
+A second migration, `V3__alter_salary_records_currency_code.sql`, was needed because V2 had already been applied. Editing V2 in place would only have been appropriate if it had not yet been applied to any database that needed to be preserved.
+
+The corrective migration follows the immutable-migration rule in Decision 4.
+
+**Implementation**
+
+V3 changes the column type with:
+
+```sql
+ALTER TABLE salary_records
+    ALTER COLUMN currency_code TYPE VARCHAR(3)
+    USING currency_code::varchar(3);
+```
+
+The recorded verification includes a successful Flyway migration, subsequent Hibernate schema validation, and confirmation in pgAdmin that `information_schema.columns` reports `character varying(3)` for the currency column.
 
 ---
 
-## Review and Maintenance Rules
+## Maintaining This Document
 
-To keep this document accurate as development continues:
+Update this document when a significant technical decision changes or new evidence affects its status.
 
-1. Update a decision when its reasoning, trade-offs, or implementation approach changes.
-2. Keep **Accepted** separate from **Implemented** and **Verified**.
-3. Do not describe planned functionality as completed.
-4. Run relevant tests before marking implementation as verified.
-5. Update this document in the same commit as significant architectural changes.
-6. Keep the architecture and implementation descriptions consistent with `docs/architecture.md` and `docs/project-structure.md`.
-7. Never commit real credentials, secrets, or personal employee data.
-
-This document is the record of the technical reasoning behind the ACME Salary Management System and should evolve alongside the codebase.
+- Keep **Accepted** separate from **Implemented** and **Verified**.
+- Do not mark functionality as verified until the relevant checks have passed.
+- Introduce new database migrations instead of modifying migrations that have already been applied.
+- Keep credentials and other sensitive configuration out of version control.
+- Update the related architecture and project-structure documentation when implementation status changes.
