@@ -1,4 +1,4 @@
-# AI Work Log
+# ACME Salary Management System: AI Work Log
 
 This document records how AI tools were used while building the ACME Salary Management System, which suggestions were accepted or rejected, and how the resulting work was verified.
 
@@ -19,23 +19,23 @@ Each entry records:
 
 ## 2025-10-16 — Requirements Document Drafting
 
-**Prompt**
+### Prompt
 
 > Draft a one-page requirements document for an HR salary management web application for 10,000 employees across multiple countries. Emphasise scope and explain why certain features are out of scope.
 
-**AI Output**
+### AI Output
 
 Suggested a requirements document structure and an initial list of out-of-scope features.
 
-**Decision**
+### Decision
 
 Kept the proposed structure but rewrote the out-of-scope explanations in my own words. Added a currency-handling constraint that was not adequately addressed in the initial suggestion.
 
-**Verification**
+### Verification
 
 Reviewed the document against the assessment brief and checked that each stated requirement mapped to an in-scope item.
 
-**Commit**
+### Commit
 
 `chore: initialize repository with Spring Boot scaffold, docs, and env template`
 
@@ -43,23 +43,23 @@ Reviewed the document against the assessment brief and checked that each stated 
 
 ## 2025-10-17 — Architecture and Design Decisions
 
-**Prompt**
+### Prompt
 
 > Review my architecture and design decision drafts and flag claims that are not yet backed by code.
 
-**AI Output**
+### AI Output
 
 Flagged statements describing tests and implementation status for features that had not yet been implemented. Recommended a status vocabulary to distinguish accepted decisions, implemented work, verified behaviour, and pending work.
 
-**Decision**
+### Decision
 
 Accepted the recommendation and revised the documents so that their status claims better reflected the repository. Added a containerisation decision covering Docker and Docker Compose.
 
-**Verification**
+### Verification
 
 Reviewed implementation and verification claims against the actual repository and available test evidence.
 
-**Commit**
+### Commit
 
 Included in the repository initialisation commit.
 
@@ -67,11 +67,11 @@ Included in the repository initialisation commit.
 
 ## 2025-10-17 — Secrets Handling and Environment Template
 
-**Prompt**
+### Prompt
 
 > What is the best way to keep local secrets out of Git while making the project easy for reviewers to run?
 
-**AI Output**
+### AI Output
 
 Recommended:
 
@@ -79,441 +79,785 @@ Recommended:
 - A committed `.env.example` file containing placeholders.
 - A `.gitignore` covering Maven, Node.js, IDE files, and secrets.
 
-**Decision**
+### Decision
 
 Accepted the approach.
 
-**Verification**
+### Verification
 
 Checked Git's ignore rules:
 
 ```powershell
 git check-ignore .env
 git check-ignore .env.example
+```
 
 Expected behaviour:
 
-.env is ignored.
+- `.env` is ignored.
+- `.env.example` is not ignored.
 
-.env.example is not ignored.
+### Commit
 
-Commit
+`chore: initialize repository with Spring Boot scaffold, docs, and env template`
 
-chore: initialize repository with Spring Boot scaffold, docs, and env template
+---
 
-2025-10-17 — Employee Entity, Repository, and Flyway V1 Migration
-Prompt
+## 2025-10-17 — Employee Entity, Repository, and Flyway V1 Migration
 
-Design the first vertical slice: employee table migration, JPA entity, repository, and tests. Use Flyway and ddl-auto=validate.
+### Prompt
 
-AI Output
+> Design the first vertical slice: employee table migration, JPA entity, repository, and tests. Use Flyway and ddl-auto=validate.
+
+### AI Output
 
 Suggested database columns, constraints, indexes, a JPA entity, and a repository. The initial country-code check validated only the string length.
 
-Decision
+### Decision
 
-Kept most of the proposed schema but tightened the country-code constraint to:
+Kept most of the proposed schema but tightened the country-code constraint to validate the format:
 
-sql
+```sql
 CHECK (country_code ~ '^[A-Z]{2}$')
+```
+
 Kept explicit Java getters and setters rather than introducing Lombok.
 
-Verification
+### Verification
 
 Ran the Maven test suite:
 
-powershell
+```powershell
 .\mvnw.cmd clean test
-Recorded result at the time:
+```
 
-text
+**Recorded result at the time:**
+
+```text
 Tests run: 6, Failures: 0, Errors: 0
 BUILD SUCCESS
-Commit
+```
 
-feat(backend): add employee entity, repository, Flyway V1 migration, and repository tests
+### Commit
 
-2025-10-18 — Fixing Spring Boot 4 Test Infrastructure
-Prompt
+`feat(backend): add employee entity, repository, Flyway V1 migration, and repository tests`
 
-EmployeeRepositoryTest fails with Cannot resolve symbol DataJpaTest and then Failed to replace DataSource with an embedded database for tests.
+---
 
-AI Output
+## 2025-10-18 — Fixing Spring Boot 4 Test Infrastructure
+
+### Prompt
+
+> EmployeeRepositoryTest fails with Cannot resolve symbol DataJpaTest and then Failed to replace DataSource with an embedded database for tests.
+
+### AI Output
 
 Identified two issues and proposed corresponding fixes:
 
-Spring Boot 4 changed the package used for @DataJpaTest to org.springframework.boot.data.jpa.test.autoconfigure.
+1. Spring Boot 4 changed the package used for `@DataJpaTest` to `org.springframework.boot.data.jpa.test.autoconfigure`.
+2. `@DataJpaTest` attempts to replace the configured data source with an embedded database by default. Because H2 was not on the classpath, the test configuration needed adjustment.
 
-@DataJpaTest attempts to replace the configured data source with an embedded database by default. Because H2 was not on the classpath, the test configuration needed adjustment.
+The proposed options included using `@AutoConfigureTestDatabase(replace = Replace.NONE)` or adding H2.
 
-The proposed options included using @AutoConfigureTestDatabase(replace = Replace.NONE) or adding H2.
-
-Decision
+### Decision
 
 Accepted the import correction and deliberately rejected adding H2.
 
-The reason was that the project relies on PostgreSQL-specific behaviour, including Flyway migrations, TIMESTAMPTZ, BIGSERIAL, and check constraints. Testing against H2 could conceal database compatibility issues.
+The project relies on PostgreSQL-specific behaviour, including Flyway migrations, `TIMESTAMPTZ`, `BIGSERIAL`, and check constraints. Testing against H2 could conceal database compatibility issues.
 
-The trade-off is that repository tests require a running PostgreSQL instance. The decision was documented as Decision 12 in design-decisions.md.
+The trade-off is that repository tests require a running PostgreSQL instance. The decision was documented as Decision 12 in `docs/design-decisions.md`.
 
-Verification
+### Verification
 
 Ran the combined test suite:
 
-powershell
+```powershell
 .\mvnw.cmd clean test
-Recorded result at the time:
+```
 
-text
+**Recorded result at the time:**
+
+```text
 Tests run: 6, Failures: 0, Errors: 0
 BUILD SUCCESS
-Commit
+```
 
-test(backend): run @DataJpaTest against real Postgres (Replace.NONE); fix Spring Boot 4 import
+### Commit
 
-2025-10-19 — Employee API, DTOs, Error Handling, and Web Tests
-Prompt
+`test(backend): run @DataJpaTest against real Postgres (Replace.NONE); fix Spring Boot 4 import`
 
-Design the employee API layer: request and response DTOs with validation, a service that handles business rules such as duplicate detection and not-found scenarios, a controller exposing POST and GET endpoints, and a consistent error response through a global exception handler. Add unit tests for the service and web-layer tests with MockMvc.
+---
 
-AI Output
+## 2025-10-19 — Employee API, DTOs, Error Handling, and Web Tests
+
+### Prompt
+
+> Design the employee API layer: request and response DTOs with validation, a service that handles business rules such as duplicate detection and not-found scenarios, a controller exposing POST and GET endpoints, and a consistent error response through a global exception handler. Add unit tests for the service and web-layer tests with MockMvc.
+
+### AI Output
 
 Suggested the following components and implementation approach.
 
-API Components
-EmployeeRequest record with @NotBlank, @Email, @Pattern for country code, and @NotNull for employment status.
+**API components**
 
-EmployeeResponse record with a static from(Employee) factory method.
+- `EmployeeRequest` record with `@NotBlank`, `@Email`, `@Pattern` for country code, and `@NotNull` for employment status.
+- `EmployeeResponse` record with a static `from(Employee)` factory method.
+- `EmployeeService` with transactional operations, duplicate checks, and input normalisation.
+- `EmployeeController` exposing:
+  - `POST /api/employees` — create an employee, returning HTTP 201.
+  - `GET /api/employees/{id}` — retrieve an employee, returning HTTP 200 or 404.
+  - `GET /api/employees` — list employees with pagination.
+- `ApiErrorResponse` record and `GlobalExceptionHandler`.
+- `EmployeeServiceTest` with five tests using a mocked repository.
+- `EmployeeControllerTest` with five tests using `@WebMvcTest`, `@MockitoBean`, and MockMvc.
 
-EmployeeService with transactional operations, duplicate checks, and input normalisation.
+### Decisions and Modifications
 
-EmployeeController exposing:
+Accepted the overall design, with the following implementation changes.
 
-POST /api/employees — create an employee, returning HTTP 201.
+**Removed an unused import.**
 
-GET /api/employees/{id} — retrieve an employee, returning HTTP 200 or 404.
+Removed `import static org.mockito.ArgumentMatchers.eq;` from `EmployeeControllerTest` after the IDE flagged it as unused.
 
-GET /api/employees — list employees with pagination.
+**Handled Spring Security in web tests.**
 
-ApiErrorResponse record and GlobalExceptionHandler.
+Added `@WithMockUser` and CSRF tokens using `.with(csrf())` to POST tests after observing HTTP 403 responses. This allowed the tests to exercise the controller under the configured security filters rather than bypassing those filters.
 
-EmployeeServiceTest with five tests using a mocked repository.
+**Updated the Jackson import.**
 
-EmployeeControllerTest with five tests using @WebMvcTest, @MockitoBean, and MockMvc.
+Changed the test import from `com.fasterxml.jackson.databind.ObjectMapper` to `tools.jackson.databind.ObjectMapper` to match the Jackson 3 package used by the project's Spring Boot 4 configuration.
 
-Decisions and Modifications
-Accepted the overall design, with the following implementation changes:
+**Improved pagination serialisation.**
 
-Removed an unused import. Removed import static org.mockito.ArgumentMatchers.eq; from EmployeeControllerTest after the IDE flagged it as unused.
+Added `WebConfig` with `@EnableSpringDataWebSupport(pageSerializationMode = VIA_DTO)` to address the `PageImpl` serialisation warning and provide a more stable paginated response structure.
 
-Handled Spring Security in web tests. Added @WithMockUser and CSRF tokens using .with(csrf()) to POST tests after observing HTTP 403 responses. This allowed the tests to exercise the controller under the configured security filters rather than bypassing those filters.
+**Added development-only security configuration.**
 
-Updated the Jackson import. Changed the test import from com.fasterxml.jackson.databind.ObjectMapper to tools.jackson.databind.ObjectMapper to match the Jackson 3 package used by the project's Spring Boot 4 configuration.
+Added `DevSecurityConfig` under the development profile to permit requests and disable CSRF for local API testing through Postman or a browser. This configuration is intended for development only and must not be used as production security.
 
-Improved pagination serialisation. Added WebConfig with @EnableSpringDataWebSupport(pageSerializationMode = VIA_DTO) to address the PageImpl serialisation warning and provide a more stable paginated response structure.
+**Improved repository test isolation.**
 
-Added development-only security configuration. Added DevSecurityConfig under the dev profile to permit requests and disable CSRF for local API testing through Postman or a browser. This configuration is intended for development only and must not be used as production security.
+Made `EmployeeRepositoryTest` use `@Transactional` for rollback after each test and UUID-based employee numbers after discovering that manually created Postman data could collide with test data in the shared PostgreSQL database.
 
-Improved repository test isolation. Made EmployeeRepositoryTest use @Transactional for rollback after each test and UUID-based employee numbers after discovering that manually created Postman data could collide with test data in the shared PostgreSQL database.
+### Verification
 
-Verification
 Ran the Maven test suite:
 
-powershell
+```powershell
 .\mvnw.cmd clean test
-Recorded result at the time:
+```
 
-text
+**Recorded result at the time:**
+
+```text
 Tests run: 16, Failures: 0, Errors: 0, Skipped: 0
 BUILD SUCCESS
+```
+
 The reported test breakdown was:
 
-Test class	Tests
-EmployeeControllerTest	5
-EmployeeRepositoryTest	5
-EmployeeServiceTest	5
-SalaryManagementApplicationTests	1
-Total	16
-Manual API Verification
-The API was tested through Postman against a running application with the dev profile enabled.
+| Test class | Tests |
+|---|---:|
+| `EmployeeControllerTest` | 5 |
+| `EmployeeRepositoryTest` | 5 |
+| `EmployeeServiceTest` | 5 |
+| `SalaryManagementApplicationTests` | 1 |
+| **Total** | **16** |
 
-#	Scenario	Expected result	Recorded result
-1	GET an empty employee list	HTTP 200 with an empty content array and pagination metadata	Matched
-2	POST a valid employee (EMP-0001)	HTTP 201 with an employee representation and generated fields	Matched
-3	GET the created employee by ID	HTTP 200 with the same employee	Matched
-4	POST invalid data, including a blank employee number, invalid email, and lowercase country code	HTTP 400 with field-level validation details	Matched
-5	POST a duplicate employee number	HTTP 409 with a duplicate-number error	Matched
-6	GET a non-existent employee ID	HTTP 404 with an employee-not-found error	Matched
-Also checked in pgAdmin that the employee created through POST existed in the PostgreSQL employees table.
+### Manual API Verification
 
-The Postman collection was committed at docs/postman/acme-salary-management.postman_collection.json, so reviewers can inspect and rerun the documented API scenarios.
+The API was tested through Postman against a running application with the development profile enabled.
 
-Commit
+| # | Scenario | Expected result | Recorded result |
+|---:|---|---|---|
+| 1 | `GET` an empty employee list | HTTP 200 with an empty `content` array and pagination metadata | Matched |
+| 2 | `POST` a valid employee (`EMP-0001`) | HTTP 201 with an employee representation and generated fields | Matched |
+| 3 | `GET` the created employee by ID | HTTP 200 with the same employee | Matched |
+| 4 | `POST` invalid data, including a blank employee number, invalid email, and lowercase country code | HTTP 400 with field-level validation details | Matched |
+| 5 | `POST` a duplicate employee number | HTTP 409 with a duplicate-number error | Matched |
+| 6 | `GET` a non-existent employee ID | HTTP 404 with an employee-not-found error | Matched |
 
-feat(backend): add employee API layer with DTOs, service, controller, error handler, and web tests
+Also checked in pgAdmin that the employee created through `POST` existed in the PostgreSQL `employees` table.
 
-2025-10-20 — Employee Search, Filters, Pagination Validation, and Reproducible Configuration
-This milestone extended the employee module with search, filtering, sort whitelisting, and paginated parameter validation, and separately fixed the local configuration workflow so that future milestones start from a stable base.
+The Postman collection was committed at `docs/postman/acme-salary-management.postman_collection.json`, so reviewers can inspect and rerun the documented API scenarios.
 
-Part 1 — Search and Filters
-Prompt
+### Commit
 
-Design the search and filter layer for the employee list endpoint. A single free-text search box that matches across names, employee number, and email is the HR Manager pattern; filters should be exact-match on country, department, and employment status, combinable with search. Enforce a sort-field whitelist and cap the page size.
+`feat(backend): add employee API layer with DTOs, service, controller, error handler, and web tests`
 
-AI Output
+---
+
+## 2025-10-20 — Employee Search, Filters, Pagination Validation, and Reproducible Configuration
+
+This milestone extended the employee module with search, filtering, sort whitelisting, and paginated parameter validation. It also fixed the local configuration workflow so future milestones could start from a stable base.
+
+### Part 1 — Search and Filters
+
+#### Prompt
+
+> Design the search and filter layer for the employee list endpoint. A single free-text search box that matches across names, employee number, and email is the HR Manager pattern; filters should be exact-match on country, department, and employment status, combinable with search. Enforce a sort-field whitelist and cap the page size.
+
+#### AI Output
 
 Suggested:
 
-EmployeeSearchCriteria as a small value object carrying validated search and filter values.
+- `EmployeeSearchCriteria` as a small value object carrying validated search and filter values.
+- `EmployeeSpecifications` as a composable specification factory, with one method per filter and a `fromCriteria(...)` combinator.
+- `EmployeeService.list(EmployeeSearchCriteria, Pageable)` that falls back to `findAll(pageable)` when the criteria are empty.
+- `EmployeeController.list(...)` with `@Validated` at the class level, `@Min`, `@Max`, `@Size`, and `@Pattern` on query parameters, and a `SORTABLE_FIELDS` whitelist that rejects unknown sort fields with HTTP 400.
 
-EmployeeSpecifications as a composable specification factory, one method per filter, plus a fromCriteria(...) combinator.
+#### Decisions and Modifications
 
-EmployeeService.list(EmployeeSearchCriteria, Pageable) that falls back to findAll(pageable) when the criteria are empty.
+**LIKE-based search, not full-text search.**
 
-EmployeeController.list(...) with @Validated at the class level, @Min, @Max, @Size, @Pattern on the query parameters, and a SORTABLE_FIELDS whitelist that rejects unknown sort fields with HTTP 400.
+For 10,000 employees on an indexed table, `LOWER(col) LIKE '%term%'` was considered sufficient without requiring a `tsvector` column or dictionary configuration. Documented as Decision 15.
 
-Decisions and Modifications
+**Sort whitelist enforced at the controller.**
 
-LIKE-based search, not full-text. For 10,000 employees on an indexed table, LOWER(col) LIKE '%term%' is fast enough and does not require a tsvector column or dictionary configuration. Documented as Decision 15.
+Unknown sort fields raise `IllegalArgumentException`, mapped to HTTP 400.
 
-Sort whitelist enforced at the controller. Unknown sort fields raise IllegalArgumentException, mapped to HTTP 400.
+**Page size capped at 100.**
 
-Page size capped at 100. Rejected values return HTTP 400.
+Requests exceeding the limit return HTTP 400.
 
-fromCriteria returns null when criteria are empty. The service checks for null and falls back to findAll(pageable).
+**Empty criteria handling.**
 
-EmployeeRepository now extends JpaSpecificationExecutor.
+`fromCriteria` returns `null` when criteria are empty. The service checks for `null` and falls back to `findAll(pageable)`.
 
-Part 2 — Exception Mapping Refinement
-Two controller tests expected HTTP 400 for unknown sort field and invalid enum value, but the handler returned 409. This exposed a semantic problem: both IllegalArgumentException and the duplicate-employee business rule were mapped to the same status.
+**Repository specification support.**
 
-Decisions and Modifications
+`EmployeeRepository` now extends `JpaSpecificationExecutor`.
 
-Introduced DuplicateEmployeeException mapped to HTTP 409.
+### Part 2 — Exception Mapping Refinement
 
-Mapped IllegalArgumentException to HTTP 400.
+Two controller tests expected HTTP 400 for an unknown sort field and an invalid enum value, but the handler returned HTTP 409. This exposed a semantic problem: both `IllegalArgumentException` and the duplicate-employee business rule were mapped to the same status.
 
-Added a dedicated MethodArgumentTypeMismatchException handler.
+#### Decisions and Modifications
 
-Added a dedicated ConstraintViolationException handler.
+- Introduced `DuplicateEmployeeException`, mapped to HTTP 409.
+- Mapped `IllegalArgumentException` to HTTP 400.
+- Added a dedicated `MethodArgumentTypeMismatchException` handler.
+- Added a dedicated `ConstraintViolationException` handler.
 
-Full status mapping: 400 for input problems, 404 for missing records, 409 for duplicates. Documented as Decision 18.
+The resulting status mapping is:
 
-Part 3 — Test Infrastructure and Configuration
-Two controller tests initially failed with HTTP 401 for all requests. The cause: @Validated on the controller caused Spring Security's filter chain to reject MockMvc requests before the controller ran.
+| HTTP status | Meaning |
+|---|---|
+| 400 Bad Request | Invalid input or request parameters |
+| 404 Not Found | Requested record does not exist |
+| 409 Conflict | Duplicate or conflicting data |
 
-Decisions and Modifications
+Documented as Decision 18.
 
-@AutoConfigureMockMvc(addFilters = false) on EmployeeControllerTest. Documented as Decision 17.
+### Part 3 — Test Infrastructure and Configuration
 
-Removed .with(csrf()) from POST tests and removed @WithMockUser.
+Two controller tests initially failed with HTTP 401 for all requests. The cause was that `@Validated` on the controller caused Spring Security's filter chain to reject MockMvc requests before the controller ran.
 
-Retained @Import({GlobalExceptionHandler.class, MethodValidationPostProcessor.class}).
+#### Decisions and Modifications
 
-Local environment configuration made reproducible. The prior workflow of setting $env:DB_* variables per PowerShell session and toggling the dev profile in IntelliJ was error-prone. Final solution:
+**Controller test configuration**
 
-.env moved to backend/.env, git-ignored. SPRING_PROFILES_ACTIVE=dev lives in that file.
+- Added `@AutoConfigureMockMvc(addFilters = false)` to `EmployeeControllerTest`. Documented as Decision 17.
+- Removed `.with(csrf())` from POST tests and removed `@WithMockUser`.
+- Retained `@Import({GlobalExceptionHandler.class, MethodValidationPostProcessor.class})`.
 
-Added me.paulschwarz:springboot4-dotenv with the spring-dotenv-bom BOM. The earlier spring-dotenv:4.0.0 artifact targets Spring Boot 3 and does not work under Spring Boot 4.
+**Reproducible local environment**
 
-Password values in .env are wrapped in double quotes when they contain # or $. Documented as Decision 16.
+The previous workflow of setting `$env:DB_*` variables per PowerShell session and toggling the development profile in IntelliJ was error-prone.
 
-spring.profiles.active=dev in application.properties was removed and replaced by SPRING_PROFILES_ACTIVE=dev in .env, plus application-dev.properties for dev-only property overrides.
+The revised configuration uses:
 
-Test profile precedence verified. @ActiveProfiles("test") still takes effect even with SPRING_PROFILES_ACTIVE=dev from .env.
+- `backend/.env` for local environment variables. The file is Git-ignored.
+- `SPRING_PROFILES_ACTIVE=dev` in that file.
+- `me.paulschwarz:springboot4-dotenv` with the `spring-dotenv-bom` BOM. The earlier `spring-dotenv:4.0.0` artifact targets Spring Boot 3 and does not work under Spring Boot 4.
+- Double quotes around password values in `.env` when they contain `#` or `$`. Documented as Decision 16.
+- `application-dev.properties` for development-specific property overrides.
 
-Verification
+Removed `spring.profiles.active=dev` from `application.properties` and replaced it with external profile selection through `SPRING_PROFILES_ACTIVE=dev`.
+
+**Test profile precedence**
+
+Verified that `@ActiveProfiles("test")` still takes effect even when `SPRING_PROFILES_ACTIVE=dev` is defined in `.env`.
+
+### Verification
+
 Ran the full test suite:
 
-powershell
+```powershell
 .\mvnw.cmd clean test
-Recorded result:
+```
 
-text
+**Recorded result at the time:**
+
+```text
 Tests run: 33, Failures: 0, Errors: 0, Skipped: 0
 BUILD SUCCESS
-Test class	Tests
-EmployeeControllerTest	10
-EmployeeRepositoryTest	5
-EmployeeServiceTest	8
-EmployeeSpecificationsTest	9
-SalaryManagementApplicationTests	1
-Total	33
-Manual API Verification
-The application was started with mvnw spring-boot:run from a fresh PowerShell window with no $env: exports and no IntelliJ run-configuration overrides. Startup log confirmed:
+```
 
-text
+| Test class | Tests |
+|---|---:|
+| `EmployeeControllerTest` | 10 |
+| `EmployeeRepositoryTest` | 5 |
+| `EmployeeServiceTest` | 8 |
+| `EmployeeSpecificationsTest` | 9 |
+| `SalaryManagementApplicationTests` | 1 |
+| **Total** | **33** |
+
+### Manual API Verification
+
+Started the application using `mvnw spring-boot:run` from a fresh PowerShell window, without `$env:` exports or IntelliJ run-configuration overrides.
+
+The startup log confirmed:
+
+```text
 The following 1 profile is active: "dev"
 HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@...
 Tomcat started on port 8080
+```
+
 Postman requests against the running instance:
 
-#	Request	Expected	Recorded
-1	GET /api/employees?search=ada	200 with matching page	Matched
-2	GET /api/employees?country=GB	200 with filtered page	Matched
-3	GET /api/employees?sort=lastName,asc&size=5	200 with sorted page	Matched
-4	GET /api/employees?sort=passwordHash,asc	400 with unsupported-sort-field message	Matched
-5	GET /api/employees?status=BANANA	400 with invalid-enum message	Matched
-6	GET /api/employees?size=500	400 with size-cap message	Matched
-7	GET /api/employees?country=GBR	400 with country-format message	Matched
-Commit
+| # | Request | Expected result | Recorded result |
+|---:|---|---|---|
+| 1 | `GET /api/employees?search=ada` | HTTP 200 with matching page | Matched |
+| 2 | `GET /api/employees?country=GB` | HTTP 200 with filtered page | Matched |
+| 3 | `GET /api/employees?sort=lastName,asc&size=5` | HTTP 200 with sorted page | Matched |
+| 4 | `GET /api/employees?sort=passwordHash,asc` | HTTP 400 with unsupported-sort-field message | Matched |
+| 5 | `GET /api/employees?status=BANANA` | HTTP 400 with invalid-enum message | Matched |
+| 6 | `GET /api/employees?size=500` | HTTP 400 with size-cap message | Matched |
+| 7 | `GET /api/employees?country=GBR` | HTTP 400 with country-format message | Matched |
 
-feat(backend): add employee search, filters, sort whitelist, and reproducible local configuration
+### Commit
 
-2025-10-20 — Salary Records Module: Migration, Entity, Service, Controller, and Tests
-The salary milestone adds append-only salary records to the employee module, resolving the "current salary" as the latest effective record on or before today, and validating currency codes against ISO 4217. It also surfaced two real problems that were resolved through disciplined engineering rather than shortcuts: a schema type mismatch between the migration and the entity, and the correct choice of dotenv library under Spring Boot 4.
+`feat(backend): add employee search, filters, sort whitelist, and reproducible local configuration`
 
-Part 1 — Design and Schema
-Prompt
+---
 
-Design the salary records module: append-only history, ISO 4217 currency, effective date, current-salary resolution by latest effective date on or before today, salary endpoints nested under the employee. Add Flyway migration, entity, repository, service, controller, and tests.
+## 2025-10-20 — Salary Records Module: Migration, Entity, Service, Controller, and Tests
 
-AI Output
+The salary milestone adds append-only salary records to the employee module, resolves the current salary as the latest effective record on or before today, and validates currency codes against ISO 4217.
+
+It also surfaced two real problems that were resolved through disciplined engineering rather than shortcuts: a schema type mismatch between the migration and the entity, and the correct choice of dotenv library under Spring Boot 4.
+
+### Part 1 — Design and Schema
+
+#### Prompt
+
+> Design the salary records module: append-only history, ISO 4217 currency, effective date, current-salary resolution by latest effective date on or before today, salary endpoints nested under the employee. Add Flyway migration, entity, repository, service, controller, and tests.
+
+#### AI Output
 
 Suggested:
 
-V2__create_salary_records.sql with id, employee_id FK, amount NUMERIC(15,2), currency_code, effective_date, created_at. Unique constraint on (employee_id, effective_date). Index on (employee_id, effective_date DESC).
+- `V2__create_salary_records.sql` with an ID, employee foreign key, `NUMERIC(15,2)` amount, currency code, effective date, and creation timestamp.
+- A unique constraint on `(employee_id, effective_date)`.
+- An index on `(employee_id, effective_date DESC)`.
+- A deliberately immutable `SalaryRecord` JPA entity, with no setters for amount, currency code, effective date, or employee.
+- `SalaryRecordRepository` with derived queries, including `findTopByEmployeeIdAndEffectiveDateLessThanEqualOrderByEffectiveDateDesc`.
+- `SalaryRecordService` with employee-existence checks, amount positivity, a future-date sanity bound of 10 years, currency validation via `java.util.Currency`, duplicate-effective-date detection, a sort whitelist, and a page-size cap.
+- `SalaryRecordController` exposing POST, GET salary-history, and GET current-salary endpoints.
+- DTOs: `SalaryRecordRequest`, `SalaryRecordResponse`, and `CurrentSalaryResponse`.
+- New exceptions: `DuplicateSalaryException` (409) and `InvalidCurrencyException` (400).
+- Three new test classes: `SalaryRecordServiceTest`, `SalaryRecordRepositoryTest`, and `SalaryRecordControllerTest`.
 
-SalaryRecord JPA entity, deliberately immutable after construction — no setters for amount, currencyCode, effectiveDate, employee.
+#### Decisions and Modifications
 
-SalaryRecordRepository with derived queries including findTopByEmployeeIdAndEffectiveDateLessThanEqualOrderByEffectiveDateDesc.
+**Current-salary resolution**
 
-SalaryRecordService with employee-existence check, amount positivity, future-date sanity bound (10 years), currency validation via java.util.Currency, duplicate-effective-date detection, sort whitelist, and page-size cap.
+Chose Option A: the current salary is the latest record whose `effectiveDate` is on or before today. Future-dated records appear in history but not in current-salary results.
 
-SalaryRecordController exposing POST, GET .../salaries, GET .../salaries/current.
+Rejected "latest `created_at` wins" and "no future dating" as inferior for a real HR Manager workflow. Documented as Decision 19.
 
-DTOs: SalaryRecordRequest, SalaryRecordResponse, CurrentSalaryResponse.
+**Currency validation**
 
-New exceptions: DuplicateSalaryException (409), InvalidCurrencyException (400).
+Chose `java.util.Currency` rather than a hand-written whitelist. The JDK supplies ISO 4217 currency data, and `Currency.getInstance(code)` throws for unknown codes without requiring an additional dependency.
 
-Three new test classes: SalaryRecordServiceTest, SalaryRecordRepositoryTest, SalaryRecordControllerTest.
+**Money representation**
 
-Decisions and Modifications
+Amounts use `BigDecimal`, not `double`. The database stores amounts as `NUMERIC(15,2)`.
 
-Chose Option A for "current salary" resolution. The "current" salary is the latest record whose effectiveDate is on or before today. Future-dated records appear in history but not in current. Rejected "latest created_at wins" and "no future dating" as inferior for a real HR manager workflow. Documented as Decision 19.
+**Effective-date representation**
 
-Chose java.util.Currency for validation, not a hand-rolled whitelist. The JDK already ships the ISO 4217 list; Currency.getInstance(code) throws for unknown codes, giving complete validation with zero new dependency.
+Uses `LocalDate`, not `TIMESTAMPTZ`, because salary changes take effect on a calendar day.
 
-Amounts are BigDecimal, not double. Well-known money rule. The database stores NUMERIC(15,2).
+**Referential integrity**
 
-Effective date is LocalDate, not TIMESTAMPTZ. Salary changes take effect on a calendar day.
+Uses `ON DELETE RESTRICT` on the employee foreign key to prevent deleting employees who have salary history.
 
-ON DELETE RESTRICT on the FK to employees. Prevents deleting an employee who has salary history. Append-only enforced at the referential-integrity level too.
+**Service-level validation**
 
-Service-level page-size cap and sort whitelist. These were already handled in the controller for employees; duplicated in the service for salary so that callers bypassing the controller also get the safety net.
+The salary service also enforces the page-size cap and sort whitelist, providing a safety net for callers that bypass the controller.
 
-Part 2 — Schema Type Mismatch: CHAR(3) vs VARCHAR(3)
-After all files were saved, mvnw clean test failed on 21 tests with:
+### Part 2 — Schema Type Mismatch: `CHAR(3)` vs `VARCHAR(3)`
 
-text
+After all files were saved, `mvnw clean test` failed on 21 tests with:
+
+```text
 Schema validation: wrong column type encountered in column [currency_code]
 in table [salary_records]; found [bpchar (Types#CHAR)], but expecting [varchar(3) (Types#VARCHAR)]
-Root cause: V2 declared currency_code CHAR(3). In PostgreSQL, CHAR(n) is stored as fixed-width bpchar. Hibernate's ddl-auto=validate mode compares the entity's declared mapping (String with @Column(length = 3) = VARCHAR(3)) against the actual column (bpchar), and rejects the mismatch at startup.
+```
 
-Decisions and Modifications
+**Root cause**
 
-Fixed at the schema level, not by weakening validation. The alternative would have been to change the entity to @Column(columnDefinition = "char(3)") or to relax ddl-auto to none. Rejected both. VARCHAR(3) is the conventional Postgres choice for a variable-length textual code; the existing CHECK (currency_code ~ '^[A-Z]{3}$') still enforces shape. ddl-auto=validate is one of the safety nets that caught this; weakening it would trade a real correctness check for convenience.
+V2 declared `currency_code CHAR(3)`. PostgreSQL stores `CHAR(n)` as fixed-width `bpchar`. Hibernate's `ddl-auto=validate` mode compares the entity's declared mapping (`String` with `@Column(length = 3)`, corresponding to `VARCHAR(3)`) against the actual column (`bpchar`) and rejects the mismatch at startup.
 
-Corrected through a new migration, V3, not by editing V2. V2 had already been applied to the local database. Editing an applied migration would break other environments or require manual history-table surgery. This is the honest application of Decision 4's rule — never edit an applied migration — and is exactly the situation the rule exists for. V3__alter_salary_records_currency_code.sql runs ALTER TABLE salary_records ALTER COLUMN currency_code TYPE VARCHAR(3) USING currency_code::varchar(3); the pattern check remains in force.
+#### Decisions and Modifications
+
+**Fixed the schema rather than weakening validation.**
+
+The alternatives were changing the entity to `@Column(columnDefinition = "char(3)")` or relaxing `ddl-auto` to `none`. Both were rejected.
+
+`VARCHAR(3)` is the conventional PostgreSQL choice for a variable-length textual code. The existing check constraint, `CHECK (currency_code ~ '^[A-Z]{3}$')`, continues to enforce the expected format.
+
+Hibernate validation caught a real mismatch. Weakening it would trade a correctness check for convenience.
+
+**Added a new migration instead of editing V2.**
+
+V2 had already been applied to the local database. Editing an applied migration could break other environments or require manual Flyway history-table changes.
+
+This follows Decision 4: never edit an applied migration.
+
+V3, `V3__alter_salary_records_currency_code.sql`, changes the column type:
+
+```sql
+ALTER TABLE salary_records
+ALTER COLUMN currency_code TYPE VARCHAR(3)
+USING currency_code::varchar(3);
+```
+
+The currency-format check remains in force.
 
 Documented as Decision 20.
 
-Verification
+### Verification
 
-After V3 was added, mvnw clean test output included:
+After V3 was added, the `mvnw clean test` output included:
 
-text
+```text
 Successfully validated 3 migrations
 Current version of schema "public": 2
 Migrating schema "public" to version "3 - alter salary records currency code"
 Successfully applied 1 migration to schema "public", now at version v3
-Then Hibernate's validate mode passed and all tests ran to completion.
+```
 
-Confirmed in pgAdmin that information_schema.columns reports currency_code | character varying | 3 for the column.
+Hibernate's validation then passed and all tests ran to completion.
 
-Part 3 — Test Coverage
-Three new test classes were added:
+Confirmed in pgAdmin that `information_schema.columns` reported `currency_code` as `character varying` with length `3`.
 
-SalaryRecordServiceTest (12) — record employee-missing, invalid currency, future-date bound, duplicate effective date, currency normalisation; current employee-missing, no-effective-record, latest-effective-record; list employee-missing, mapped page, unsupported sort field, page-size cap.
+### Part 3 — Test Coverage
 
-SalaryRecordRepositoryTest (6) — save and find by employee id, unique constraint on (employee_id, effective_date), non-positive amount rejected, current resolves latest effective on or before today, current returns empty when only future-dated records exist, listing sorted by effective date descending.
+Three new test classes were added.
 
-SalaryRecordControllerTest (10) — record 201, invalid currency 400, negative amount 400, duplicate effective date 409, missing employee 404, current 200, current missing 404, list 200, oversized page size 400, unsupported sort field 400.
+**`SalaryRecordServiceTest` — 12 tests**
 
-All three use the same patterns established in the employee milestone: @AutoConfigureMockMvc(addFilters = false) on the controller test, @Transactional for rollback and UUID-based employee numbers on the repository test, and mocked repository on the service test.
+- Record creation: employee missing, invalid currency, future-date bound, duplicate effective date, and currency normalisation.
+- Current salary: employee missing, no effective record, and latest effective record.
+- Listing: employee missing, mapped page, unsupported sort field, and page-size cap.
 
-Verification
+**`SalaryRecordRepositoryTest` — 6 tests**
+
+- Save and find by employee ID.
+- Unique constraint on `(employee_id, effective_date)`.
+- Non-positive amount rejected.
+- Current salary resolves to the latest effective record on or before today.
+- Current salary returns empty when only future-dated records exist.
+- Salary history is sorted by effective date descending.
+
+**`SalaryRecordControllerTest` — 10 tests**
+
+- Record creation returns 201.
+- Invalid currency returns 400.
+- Negative amount returns 400.
+- Duplicate effective date returns 409.
+- Missing employee returns 404.
+- Current salary returns 200.
+- Missing current salary returns 404.
+- Salary history returns 200.
+- Oversized page size returns 400.
+- Unsupported sort field returns 400.
+
+All three follow the patterns established in the employee milestone:
+
+- `@AutoConfigureMockMvc(addFilters = false)` on the controller test.
+- `@Transactional` and UUID-based employee numbers on the repository test.
+- A mocked repository on the service test.
+
+### Verification
+
 Ran the full test suite:
 
-powershell
+```powershell
 .\mvnw.cmd clean test
-Recorded result:
+```
 
-text
+**Recorded result at the time:**
+
+```text
 Tests run: 61, Failures: 0, Errors: 0, Skipped: 0
 BUILD SUCCESS
-Test class	Tests
-EmployeeControllerTest	10
-EmployeeRepositoryTest	5
-EmployeeServiceTest	8
-EmployeeSpecificationsTest	9
-SalaryRecordControllerTest	10
-SalaryRecordRepositoryTest	6
-SalaryRecordServiceTest	12
-SalaryManagementApplicationTests	1
-Total	61
-Manual API Verification
-The application was started with mvnw spring-boot:run from PowerShell with the dev profile active via .env. Postman requests against the running instance:
+```
 
-#	Request	Expected	Recorded
-1	POST /api/employees with EMP-SALARY-01	201 with generated id	Matched
-2	POST .../salaries {amount: 50000, currencyCode: GBP, effectiveDate: 2025-01-01}	201	Matched
-3	POST .../salaries {amount: 55000, currencyCode: GBP, effectiveDate: 2026-01-01}	201	Matched
-4	POST .../salaries {amount: 60000, currencyCode: GBP, effectiveDate: 2030-01-01}	201	Matched
-5	GET .../salaries/current	200, returns the 2026-01-01 record	Matched
-6	GET .../salaries	200, three records ordered 2030 → 2026 → 2025	Matched
-7	POST .../salaries duplicate {effectiveDate: 2025-01-01}	409 with duplicate message	Matched
-8	POST .../salaries {currencyCode: XYZ}	400 with ISO 4217 error message	Matched
-9	GET .../salaries/current for 999999	404	Matched
-10	GET .../salaries?size=500	400 with page-size cap message	Matched
-11	GET /api/employees/{id}	200, employee still exists	Matched
+| Test class | Tests |
+|---|---:|
+| `EmployeeControllerTest` | 10 |
+| `EmployeeRepositoryTest` | 5 |
+| `EmployeeServiceTest` | 8 |
+| `EmployeeSpecificationsTest` | 9 |
+| `SalaryRecordControllerTest` | 10 |
+| `SalaryRecordRepositoryTest` | 6 |
+| `SalaryRecordServiceTest` | 12 |
+| `SalaryManagementApplicationTests` | 1 |
+| **Total** | **61** |
+
+### Manual API Verification
+
+Started the application using `mvnw spring-boot:run` from PowerShell, with the development profile active through `.env`.
+
+| # | Request | Expected result | Recorded result |
+|---:|---|---|---|
+| 1 | `POST /api/employees` with `EMP-SALARY-01` | HTTP 201 with generated ID | Matched |
+| 2 | `POST .../salaries` with amount `50000`, currency `GBP`, and effective date `2025-01-01` | HTTP 201 | Matched |
+| 3 | `POST .../salaries` with amount `55000`, currency `GBP`, and effective date `2026-01-01` | HTTP 201 | Matched |
+| 4 | `POST .../salaries` with amount `60000`, currency `GBP`, and effective date `2030-01-01` | HTTP 201 | Matched |
+| 5 | `GET .../salaries/current` | HTTP 200, returns the `2026-01-01` record | Matched |
+| 6 | `GET .../salaries` | HTTP 200, three records ordered 2030 → 2026 → 2025 | Matched |
+| 7 | Duplicate salary POST with effective date `2025-01-01` | HTTP 409 with duplicate message | Matched |
+| 8 | Salary POST with currency `XYZ` | HTTP 400 with ISO 4217 error message | Matched |
+| 9 | `GET .../salaries/current` for employee `999999` | HTTP 404 | Matched |
+| 10 | `GET .../salaries?size=500` | HTTP 400 with page-size cap message | Matched |
+| 11 | `GET /api/employees/{id}` | HTTP 200, employee still exists | Matched |
+
 Also verified in pgAdmin that:
 
-Three rows exist in salary_records for the test employee with the expected effective-date ordering.
+- Three rows existed in `salary_records` for the test employee with the expected effective-date ordering.
+- `information_schema.columns` reported `currency_code` as `character varying` with length `3`, confirming V3 was applied.
 
-information_schema.columns reports currency_code as character varying | 3, confirming V3 applied cleanly.
+The Postman collection was re-exported with all eleven scenarios and committed at `docs/postman/acme-salary-management.postman_collection.json`.
 
-The Postman collection was re-exported with all eleven scenarios and is committed at docs/postman/acme-salary-management.postman_collection.json.
+### Key Engineering Notes
 
-Key Engineering Notes
-The two problems hit in this milestone — the CHAR(3) vs VARCHAR(3) mismatch and the earlier spring-dotenv:4.0.0 Spring Boot 3 vs springboot4-dotenv Spring Boot 4 issue — were both real, both diagnosed from actual log output, and both fixed through the correct mechanism (a new migration; a corrected dependency). Neither was papered over by weakening validation. This is the sort of decision record a reviewer can inspect in the commit history and the design-decisions document, and it demonstrates engineering judgment rather than just code that compiles.
+Two problems surfaced during this milestone:
 
-Commit
+1. The `CHAR(3)` versus `VARCHAR(3)` schema mismatch.
+2. The incompatibility between the earlier `spring-dotenv:4.0.0` dependency and Spring Boot 4.
 
-feat(backend): add salary records module with append-only history, currency validation, and 28 new tests
+Both were diagnosed from actual output and fixed through the appropriate mechanism: a new migration and a corrected dependency. Neither was papered over by weakening validation.
 
-Remaining Verification Work
-The following items are still outstanding:
+These decisions are documented in the commit history and `docs/design-decisions.md`, demonstrating engineering judgment beyond simply getting the code to compile.
 
-Reporting module, including per-currency and per-department reporting.
+### Commit
 
-CSV export of filtered employee and salary results.
+`feat(backend): add salary records module with append-only history, currency validation, and 28 new tests`
 
-JWT authentication and endpoint protection, replacing DevSecurityConfig.
+---
 
-Dedicated security test class covering unauthenticated and unauthorised requests.
+## 2025-10-21 — Reporting Module: Per-Currency Aggregates and a ClassCastException Bug
 
-Angular frontend.
+The reporting module adds dashboard, per-country, per-department, distribution, and top-earners endpoints. All aggregations are per-currency and use PostgreSQL-specific SQL.
 
-Deterministic seed-data generator for 10,000 employees.
+This milestone surfaced a production bug: a `ClassCastException` caused by a JDBC type mismatch. It exposed a gap in the test strategy and motivated a new class of tests.
 
-Dockerfiles and docker-compose.yml.
+### Part 1 — Design of the Reporting Module
 
-Deployment and demonstration video.
+#### Prompt
 
-Update this list as work is completed and verified.
+> Design the reporting module: dashboard headline stats, salary aggregates by country and by department, a salary distribution histogram, and a top-earners list. All aggregations must be per-currency; there must be no cross-currency total. Use native SQL where JPA would be less efficient or impossible. Add service, controller, repository, DTOs, and tests.
 
-Record-Keeping Rule
+#### AI Output
+
+Suggested:
+
+- `ReportController` with five endpoints: `/api/reports/dashboard`, `/salary-by-country`, `/salary-by-department`, `/salary-distribution`, and `/top-earners`.
+- `ReportRepository` with seven native SQL queries. Every query uses the `current_salaries` CTE pattern from Decision 19.
+- `ReportService` validating inputs, bounding numeric parameters, and mapping `Object[]` results to typed DTOs.
+- DTOs: `CurrencyTotal`, `DashboardResponse`, `DistributionBucket`, `DistributionResponse`, `SalaryAggregateResponse`, `SalaryAggregateRow`, `TopEarnerRow`, and `TopEarnersResponse`.
+- Three new test classes: `ReportControllerTest`, `ReportRepositoryTest`, and `ReportServiceTest`.
+
+#### Decisions and Modifications
+
+**Native SQL for aggregations**
+
+The queries use `DISTINCT ON (employee_id)` to select the current salary per employee and `width_bucket(...)` for histograms. Neither has a direct JPQL equivalent, and a Java-side rewrite of `width_bucket` would be slower and harder to test.
+
+Documented as Decision 21.
+
+**Per-currency scope on every aggregate**
+
+Salary-by-country, salary-by-department, and top-earners require a currency parameter. The dashboard returns `salaryTotalsByCurrency` as an array.
+
+There is deliberately no `total payroll` field. See Decision 10.
+
+**Bounded numeric parameters**
+
+- `@Max(100)` on the top-earners limit.
+- `@Max(200)` on the distribution bucket count.
+
+These bounds limit the cost of individual requests.
+
+**Required parameters**
+
+A missing required `@RequestParam` triggers `MissingServletRequestParameterException`. This was initially not handled by `GlobalExceptionHandler`; see Part 3.
+
+**Distribution validation**
+
+`bucketSize` is validated in the service. It must be at least `1.00` and must produce no more than 200 buckets for the current maximum salary. Invalid values are rejected as `IllegalArgumentException`, mapped to HTTP 400.
+
+### Part 2 — Cast Syntax Bug in Native Query
+
+After the first save, `ReportRepositoryTest` failed on the distribution query with a Hibernate named-parameter error. The query contained:
+
+```sql
+cast(? as integer)
+```
+
+Hibernate 7's named-parameter parser treated `? as integer` as part of a malformed parameter reference.
+
+#### Decisions and Modifications
+
+- Replaced positional `?` syntax with named parameters. `cast(:bucketCount as integer)` binds correctly because the parser terminates the parameter name at `as`.
+- Applied `cast(... as numeric)` to every parameter in the `width_bucket` call. Without explicit casts, PostgreSQL's overload resolution may select the wrong overload or fail to resolve one.
+
+Documented as an inline note in `ReportRepository.salaryDistribution`.
+
+### Part 3 — Missing-Parameter Handler Gap
+
+`ReportControllerTest.salaryByCountryRejectsMissingCurrency` passed, but only because Spring's default `MissingServletRequestParameterException` handler also returns HTTP 400. The response body, however, had a different structure from `ApiErrorResponse`.
+
+#### Decisions and Modifications
+
+- Added `MissingServletRequestParameterException` handling to `GlobalExceptionHandler`.
+- Standardised the response shape for HTTP 400 errors.
+- Added a test asserting the response structure: `salaryByCountryReturnsConsistentErrorBodyForMissingCurrency`.
+
+### Part 4 — The `ClassCastException` Bug
+
+All 105 tests passed, but manual Postman testing of `/api/reports/top-earners?currency=GBP&limit=5` returned HTTP 500. The application log showed:
+
+```text
+java.lang.ClassCastException: class java.time.LocalDate cannot be cast to class java.sql.Date
+    at za.co.acme.salarymanagement.report.ReportService.topEarners(ReportService.java:168)
+```
+
+**Root cause**
+
+`ReportService.topEarners` cast the `effective_date` column to `java.sql.Date`. PostgreSQL 17.6 with Hibernate 7.4.5 returns `java.time.LocalDate` for a `DATE` column materialised in a native `Object[]` result. The cast therefore failed at runtime.
+
+The mock-based unit test `ReportServiceTest.topEarnersMapsRows` supplied `java.sql.Date`, a type that did not match the actual runtime result. The test passed while the application failed.
+
+This demonstrated a limitation of mock-based testing for native query results.
+
+#### Decisions and Modifications
+
+**Normalised date conversion**
+
+Added a `toLocalDate(Object)` helper that accepts both `java.time.LocalDate` and `java.sql.Date`, and rejects unexpected types with an explicit `IllegalStateException`.
+
+Returning `null` silently could corrupt the top-earners display, so unexpected types must fail clearly.
+
+**Corrected the unit test**
+
+Changed `ReportServiceTest.topEarnersMapsRows` to use `LocalDate`, matching the type returned in the production environment. Renamed it to `topEarnersMapsRowsWithLocalDateFromHibernate` to make the intent explicit.
+
+**Added tests for accepted and rejected types**
+
+Added:
+
+- `topEarnersAcceptsSqlDateFromAlternativeDrivers`
+- `topEarnersRejectsUnexpectedDateType`
+
+These verify compatibility with the alternative JDBC type and the rejection of unexpected values.
+
+**Added a real PostgreSQL integration test**
+
+Added `ReportServiceIntegrationTest` to exercise the complete native-query-to-DTO mapping path against real PostgreSQL. It uses the distinctive currency code `XDR` to isolate its data from other records in the shared test database.
+
+Documented as Decision 22.
+
+### Verification
+
+Ran the full test suite:
+
+```powershell
+.\mvnw.cmd clean test
+```
+
+**Recorded result at the time:**
+
+```text
+Tests run: 105, Failures: 0, Errors: 0, Skipped: 0
+BUILD SUCCESS
+```
+
+| Test class | Tests |
+|---|---:|
+| `EmployeeControllerTest` | 10 |
+| `EmployeeRepositoryTest` | 5 |
+| `EmployeeServiceTest` | 8 |
+| `EmployeeSpecificationsTest` | 9 |
+| `ReportControllerTest` | 12 |
+| `ReportRepositoryTest` | 10 |
+| `ReportServiceIntegrationTest` | 5 |
+| `ReportServiceTest` | 17 |
+| `SalaryRecordControllerTest` | 10 |
+| `SalaryRecordRepositoryTest` | 6 |
+| `SalaryRecordServiceTest` | 12 |
+| `SalaryManagementApplicationTests` | 1 |
+| **Total** | **105** |
+
+### Manual API Verification
+
+Started the application using `mvnw spring-boot:run`. All 25 Postman requests against the running instance returned the expected status codes.
+
+| # | Request | Expected result | Recorded result |
+|---:|---|---|---|
+| 1–17 | Employee and salary smoke tests, previously verified | As documented | Matched |
+| 18 | `GET /api/reports/dashboard` | HTTP 200 with headline counts and per-currency totals | Matched |
+| 19 | `GET /api/reports/salary-by-country?currency=GBP` | HTTP 200 with `groupingDimension: "country"` | Matched |
+| 20 | `GET /api/reports/salary-by-department?currency=GBP` | HTTP 200 with `groupingDimension: "department"` | Matched |
+| 21 | `GET /api/reports/salary-by-country?currency=XYZ` | HTTP 400 with `Unknown ISO 4217 currency code: XYZ` | Matched |
+| 22 | `GET /api/reports/salary-distribution?currency=GBP&bucketSize=10000` | HTTP 200 with a buckets array | Matched |
+| 23 | `GET /api/reports/top-earners?currency=GBP&limit=5` | HTTP 200 with an earners array; previously returned HTTP 500 | Matched after fix |
+| 24 | `GET /api/reports/top-earners?currency=GBP&limit=500` | HTTP 400 with the `@Max(100)` message | Matched |
+| 25 | `GET /api/reports/salary-by-country` without currency | HTTP 400 with a required-parameter message | Matched |
+
+### Key Engineering Notes
+
+The `ClassCastException` is the most important entry in this work log. It was a real bug that reached manual testing despite 98 unit and repository tests passing.
+
+The lesson recorded in Decision 22 is:
+
+> Mock-based unit tests verify that code behaves as expected for a particular input. They cannot verify that the runtime will actually produce that input. For native queries returning `Object[]`, the DTO mapping layer must be covered by integration tests against the real driver.
+
+The engineering response was to:
+
+1. Fix the production code defensively by accepting both supported date types and rejecting others.
+2. Update the mock-based test to use the type production actually returns.
+3. Add explicit tests for each accepted type and for the rejection path.
+4. Add an integration test covering the complete path against real PostgreSQL.
+5. Document the rule so future native queries follow the same pattern.
+
+This demonstrates engineering judgment beyond simply writing code that compiles.
+
+### Commit
+
+`fix(report): normalise DATE type from Hibernate native query in top-earners; add reporting module`
+
+---
+
+## Remaining Verification Work
+
+The following items remain outstanding and should be updated as implementation progresses:
+
+- [ ] CSV export of filtered employee and salary results.
+- [ ] JWT authentication and endpoint protection, replacing `DevSecurityConfig`.
+- [ ] Dedicated security test class covering unauthenticated and unauthorised requests.
+- [ ] Angular frontend.
+- [ ] Deterministic seed-data generator for 10,000 employees.
+- [ ] Dockerfiles and `docker-compose.yml`.
+- [ ] Deployment and demonstration video.
+
+## Record-Keeping Rule
+
 Never record a test, feature, or security control as verified unless the relevant check has actually been run and its result is available.
 
-Historical results must remain distinguishable from current results. Update this work log when new implementation decisions, AI-assisted changes, verification results, or related commits are made.
+Historical results must remain distinguishable from current results. Update this work log whenever new implementation decisions, AI-assisted changes, verification results, or related commits are made.

@@ -4,38 +4,42 @@ A web application for the ACME HR Manager to manage employee records and salary 
 
 ## Status
 
-**Work in progress**: Incubyte Software Craftsperson assessment.
+**Work in progress:** Incubyte Software Craftsperson assessment.
+
+The backend includes employee management, salary records, and reporting modules. The recorded test milestone is **105 passing tests against real PostgreSQL**. The Angular frontend, seed-data generator, and JWT security are still pending.
 
 ## Tech Stack
 
-- **Backend:** Spring Boot 4.1.1, Java 21, Spring Data JPA, Hibernate, Flyway, PostgreSQL 17, Spring Security
-- **Frontend:** Angular (in progress)
-- **Build:** Maven with Maven Wrapper
-- **Testing:** JUnit 5, Spring Boot Test, MockMvc, Mockito
-- **Local configuration:** `springboot4-dotenv`, configured to load `backend/.env`
+- **Backend:** Spring Boot 4.1.1, Java 21, Spring Data JPA, Hibernate, Flyway, PostgreSQL 17, Spring Security.
+- **Frontend:** Angular (in progress).
+- **Build:** Maven with Maven Wrapper.
+- **Testing:** JUnit 5, Spring Boot Test, MockMvc, Mockito.
+- **Local configuration:** `springboot4-dotenv`, configured to load environment variables from `backend/.env`.
 
 ## Project Structure
 
 ```text
 acme-salary-management/
-├── backend/        # Spring Boot REST API and persistence
-├── frontend/       # Angular application (in progress)
-├── docs/           # Requirements, architecture, decisions, and AI work log
-├── scripts/        # Seed data and utility scripts
-├── .env.example    # Environment configuration template
+├── backend/          # Spring Boot REST API and persistence
+├── frontend/         # Angular application (in progress)
+├── docs/             # Requirements, architecture, decisions, and AI work log
+├── scripts/          # Planned seed-data and utility scripts
+├── .env.example      # Environment configuration template
 ├── .gitignore
 └── README.md
 ```
+
+For the detailed file tree, see [`docs/project-structure.md`](docs/project-structure.md).
 
 ## Prerequisites
 
 Install or configure the following before running the backend:
 
-- Java 21
-- PostgreSQL 17, running locally
-- A database named `acme_salary_management`
-- A PostgreSQL role named `acme_app` with the required database and schema permissions
-- Node.js 20 or later, when working on the frontend
+- Java 21.
+- PostgreSQL 17, running locally or accessible through the configured database URL.
+- A database named `acme_salary_management`.
+- A PostgreSQL role named `acme_app` with the required database and schema permissions.
+- Node.js 20 or later when working on the frontend.
 
 ## Local Setup
 
@@ -92,7 +96,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public
 
 **Important:** Default privileges apply to objects created by the role that executes `ALTER DEFAULT PRIVILEGES`. If Flyway migrations run under a different database role, configure the appropriate default privileges for that role as well.
 
-Use database permissions appropriate to the application's actual requirements.
+Use database permissions appropriate to the application's actual requirements. In particular, grant schema creation privileges only to roles that need them.
 
 ### 2. Configure environment variables
 
@@ -116,12 +120,12 @@ Open `backend/.env` and configure the values:
 
 | Variable | Purpose |
 |---|---|
-| `DB_URL` | JDBC URL for the PostgreSQL database |
-| `DB_USERNAME` | Database role, normally `acme_app` |
-| `DB_PASSWORD` | Password configured for the database role |
-| `JWT_SECRET` | Random secret of at least 32 characters |
-| `JWT_EXPIRATION_MS` | Token lifetime in milliseconds; `86400000` represents 24 hours |
-| `SPRING_PROFILES_ACTIVE` | Use `dev` for local development |
+| `DB_URL` | JDBC URL for the PostgreSQL database. |
+| `DB_USERNAME` | Database role, normally `acme_app`. |
+| `DB_PASSWORD` | Password configured for the database role. |
+| `JWT_SECRET` | Random secret of at least 32 characters, for the planned JWT implementation. |
+| `JWT_EXPIRATION_MS` | Token lifetime in milliseconds; `86400000` represents 24 hours. |
+| `SPRING_PROFILES_ACTIVE` | Use `dev` for local development. |
 
 You can generate a random JWT secret with OpenSSL:
 
@@ -129,7 +133,7 @@ You can generate a random JWT secret with OpenSSL:
 openssl rand -base64 48
 ```
 
-Use the generated value for `JWT_SECRET`.
+Use the generated value for `JWT_SECRET` when configuring the future JWT implementation.
 
 If a value contains `#`, `$`, or whitespace, wrap it in double quotes where required by the dotenv parser. For example:
 
@@ -157,17 +161,19 @@ cd backend
 
 The Maven Wrapper downloads the configured Maven distribution if necessary and runs the backend test suite.
 
-The tests use the `test` profile where configured by `@ActiveProfiles("test")`. Check `application-test.properties` to confirm the database connection settings. The configured test database must be running and accessible.
+The latest recorded milestone reports **105 tests passing**. This is a historical result; run the command above to verify the current code.
+
+The tests use the test profile where configured by `@ActiveProfiles("test")`. Check `src/test/resources/application-test.properties` to confirm the database connection settings. The configured test database must be running and accessible.
 
 ### 4. Run the backend
 
-After the tests pass, run:
+From the `backend` directory, run:
 
 ```powershell
 .\mvnw.cmd spring-boot:run
 ```
 
-The expected startup output should indicate that the application started successfully. For example:
+The startup output should indicate that the application started successfully. For example:
 
 ```text
 The following 1 profile is active: "dev"
@@ -176,7 +182,7 @@ Tomcat started on port 8080
 Started SalaryManagementApplication in X.XXX seconds
 ```
 
-The exact log messages and startup time may differ.
+Exact log messages and startup times may differ.
 
 The API base URL is:
 
@@ -186,27 +192,55 @@ The API base URL is:
 
 Import the Postman collection:
 
-`docs/postman/acme-salary-management.postman_collection.json`
+[`docs/postman/acme-salary-management.postman_collection.json`](docs/postman/acme-salary-management.postman_collection.json)
 
-The collection covers the currently implemented employee endpoints:
+The collection contains 25 requests covering the implemented endpoints.
 
 | Method | Endpoint | Purpose |
 |---|---|---|
-| `POST` | `/api/employees` | Create an employee |
-| `GET` | `/api/employees/{id}` | Retrieve an employee by ID |
-| `GET` | `/api/employees` | List employees with search, filters, pagination, and sorting |
+| `POST` | `/api/employees` | Create an employee. |
+| `GET` | `/api/employees/{id}` | Retrieve an employee by ID. |
+| `GET` | `/api/employees` | List employees with search, filters, pagination, and sorting. |
+| `POST` | `/api/employees/{employeeId}/salaries` | Create a salary record. |
+| `GET` | `/api/employees/{employeeId}/salaries` | Retrieve salary history. |
+| `GET` | `/api/employees/{employeeId}/salaries/current` | Retrieve the current salary. |
+| `GET` | `/api/reports/dashboard` | Retrieve dashboard headline numbers. |
+| `GET` | `/api/reports/salary-by-country` | Retrieve salary aggregates per country, for one currency. |
+| `GET` | `/api/reports/salary-by-department` | Retrieve salary aggregates per department, for one currency. |
+| `GET` | `/api/reports/salary-distribution` | Retrieve a salary histogram for one currency. |
+| `GET` | `/api/reports/top-earners` | Retrieve top earners for one currency. |
 
-For local API testing, the `dev` profile permits unauthenticated requests and disables CSRF protection. This is a development-only configuration, **not production security**.
+For local API testing, the `dev` profile permits unauthenticated requests and disables CSRF protection. This is a development-only configuration, not production security.
+
+**Pagination response format**
+
+This project uses `@EnableSpringDataWebSupport(pageSerializationMode = VIA_DTO)`. Paged responses follow this structure:
+
+```json
+{
+  "content": [],
+  "page": {
+    "size": 20,
+    "number": 0,
+    "totalElements": 0,
+    "totalPages": 0
+  }
+}
+```
+
+Use `body.page.totalElements` when asserting the total number of results in Postman or tests, rather than `body.totalElements`.
 
 ## Documentation
 
-The `docs/` directory contains the project's supporting documentation:
+The `docs/` directory contains the project's supporting documentation.
 
-- [`docs/requirements.md`](docs/requirements.md): Scope, features, and non-functional requirements
-- [`docs/architecture.md`](docs/architecture.md): Architecture, module responsibilities, data flow, and implementation status
-- [`docs/design-decisions.md`](docs/design-decisions.md): Technical decisions, reasoning, and trade-offs
-- [`docs/project-structure.md`](docs/project-structure.md): Repository layout, including implemented and planned components
-- [`docs/ai-worklog.md`](docs/ai-worklog.md): AI usage, decisions, and verification results
+| File | Description |
+|---|---|
+| [`docs/requirements.md`](docs/requirements.md) | Scope, features, and non-functional requirements. |
+| [`docs/architecture.md`](docs/architecture.md) | Architecture, module responsibilities, data flow, and implementation status. |
+| [`docs/design-decisions.md`](docs/design-decisions.md) | Technical decisions, reasoning, and trade-offs. |
+| [`docs/project-structure.md`](docs/project-structure.md) | Repository layout, including implemented and planned components. |
+| [`docs/ai-worklog.md`](docs/ai-worklog.md) | AI usage, decisions, and verification results. |
 
 ## Security Notes
 
@@ -217,6 +251,7 @@ The `docs/` directory contains the project's supporting documentation:
 - The development security configuration disables CSRF and permits requests without authentication. Never use it as production security.
 - Use least-privilege database permissions appropriate to the application's requirements.
 - Configure production secrets and `SPRING_PROFILES_ACTIVE=prod` through the hosting platform's environment settings.
+- Implement and verify JWT authentication and endpoint authorisation before exposing protected operations in production.
 
 ## Database Migrations
 
@@ -230,10 +265,19 @@ backend/src/main/resources/db/migration/
 
 Migration files must be versioned and committed alongside the application changes they support.
 
-Hibernate is configured to validate the database schema rather than automatically create or modify it. Keep entity definitions and Flyway migrations consistent.
+Hibernate is configured to validate the database schema rather than automatically create or modify it. Keep entity definitions and Flyway migrations consistent. Once a migration has been applied, create a new migration for schema changes rather than editing the applied migration.
 
 ## Current Scope and Future Work
 
-The employee module provides the current backend foundation. Salary history, currency-aware reporting, production authentication and authorization, the Angular frontend, seed-data tooling, and deployment infrastructure remain subject to implementation and verification.
+The employee, salary, and reporting modules provide the current backend foundation.
 
-Update this README as features are implemented and tested so that the documented status stays consistent with the codebase.
+Outstanding work includes:
+
+- [ ] CSV export of filtered employee and salary results.
+- [ ] JWT authentication and endpoint protection, replacing `DevSecurityConfig`.
+- [ ] Angular frontend.
+- [ ] Deterministic seed-data generator for 10,000 employees.
+- [ ] Dockerfiles and `docker-compose.yml`.
+- [ ] Deployment and demonstration video.
+
+Update this README as features are implemented and tested so that the documented status remains consistent with the codebase.
